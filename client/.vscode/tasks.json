@@ -1,0 +1,19 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Upload to FPGA",
+            "type": "shell",
+            "command": "openFPGALoader -b arty_s7_50 ${fileDirname}/../obj/final.bit",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build with lab-bc",
+            "type": "shell",
+            "command": "lab-bc run ./src",
+            "problemMatcher": [],
+        }
+    ]
+}

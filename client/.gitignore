@@ -1,0 +1,7 @@
+lab_bc_client
+src/_history
+
+src/obj/*
+!src/obj/.gitkeep
+
+.DS_Store
