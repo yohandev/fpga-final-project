@@ -1,6 +1,9 @@
 lab_bc_client
 src/_history
 
+sim_build
+src/sim/__pycache__
+
 src/obj/*
 !src/obj/.gitkeep
 

@@ -1,4 +1,4 @@
-`include "hdl/types.sv"
+`include "types.sv"
 
 // A single-cycle block cache with N ports
 //  - Start simple with cyclic replacement, then experiment with LRU policy (might be overkill)
@@ -19,9 +19,13 @@ module l1_cache #(N=4)(
 
     always_ff @(posedge clk_in) begin
         if (rst_in) begin
-            foreach (tags[i]) begin
+            for (int i = 0; i < N; i++) begin
+                // Reset cache
                 tags[i] <= {TAG_INVALID, TAG_INVALID, TAG_INVALID};
                 entries[i] <= BLOCK_AIR;
+                
+                // Reset outputs
+                valid[i] = 0;
             end
         end
     end
