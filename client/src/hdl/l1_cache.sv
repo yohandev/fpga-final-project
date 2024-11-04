@@ -12,7 +12,7 @@ module l1_cache #(N=4)(
 );
     // Signed numbers are asymmetric (i.e. -128 to 127, inclusive) so use that to
     // represent an invalid cache entry
-    parameter [$clog2(`CHUNK_WIDTH):0] TAG_INVALID = $signed(1 << ($clog2(`CHUNK_WIDTH) - 1));
+    parameter [$clog2(`CHUNK_WIDTH)-1:0] TAG_INVALID = $signed(1 << ($clog2(`CHUNK_WIDTH) - 1));
 
     BlockPos [N-1:0]    tags;
     BlockType [N-1:0]   entries;

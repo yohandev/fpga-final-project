@@ -14,9 +14,9 @@ typedef enum logic [4:0] {
 
 // The position of a block (-64..=64 in all dimensions)
 typedef struct packed {
-    logic signed [$clog2(`CHUNK_WIDTH):0] x;
-    logic signed [$clog2(`CHUNK_WIDTH):0] y;
-    logic signed [$clog2(`CHUNK_WIDTH):0] z;
+    logic signed [$clog2(`CHUNK_WIDTH)-1:0] x;
+    logic signed [$clog2(`CHUNK_WIDTH)-1:0] y;
+    logic signed [$clog2(`CHUNK_WIDTH)-1:0] z;
 } BlockPos;
 
 `endif

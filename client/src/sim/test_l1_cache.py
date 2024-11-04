@@ -9,6 +9,9 @@ from cocotb.utils import get_sim_time as gst
 from cocotb.runner import get_runner
 
 
+N = 4
+
+
 async def reset(rst, clk):
     """ Helper function to issue a reset signal to our module """
     rst.value = 1
@@ -24,7 +27,9 @@ async def test_a(dut):
 
     await reset(dut.rst_in, dut.clk_in)
 
-    await ClockCycles(dut.clk_in, 10)
+    # Test reset marks all entries invalid
+    for i in range(N):
+        assert dut.tags.value[i*7:(i+1)*7].signed_integer == -127
 
 
 def is_runner():
@@ -37,7 +42,7 @@ def is_runner():
     sources = [proj_path / "hdl" / "l1_cache.sv"]
     includes = [proj_path / "hdl"]
     build_test_args = ["-Wall"]
-    parameters = {}
+    parameters = {"N": N}
     sys.path.append(str(proj_path / "sim"))
     runner = get_runner(sim)
     runner.build(
