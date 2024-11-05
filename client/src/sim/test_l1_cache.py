@@ -15,6 +15,21 @@ CACHE_SIZE = 16
 PORTS = 4
 
 
+def twos_complement(n):
+    return BinaryValue(n, 7, False, BinaryRepresentation.TWOS_COMPLEMENT).binstr
+
+def reverse_bits(n):
+    if isinstance(n, BinaryValue):
+        return int(n.binstr[::-1], base=2)
+
+    out = 0
+    while n:
+        out = (out << 1) + (n & 1)
+        n >>= 1
+    
+    return out
+
+
 async def reset(rst, clk):
     """ Helper function to issue a reset signal to our module """
     rst.value = 1
@@ -33,14 +48,13 @@ async def query_cache(dut, ports):
         list[int]: The returned blocks per port, in the order given
     """
     val = dut.addr.value
-    mk_val = lambda n: BinaryValue(n, 7, False, BinaryRepresentation.TWOS_COMPLEMENT).binstr
     
     for (port, (x, y, z)) in ports:
         off = (PORTS - port - 1) * 21
 
-        val[off+0:off+6]   = mk_val(z)
-        val[off+7:off+13]  = mk_val(y)
-        val[off+14:off+20] = mk_val(x)
+        val[off+0:off+6]   = twos_complement(z)
+        val[off+7:off+13]  = twos_complement(y)
+        val[off+14:off+20] = twos_complement(x)
 
     dut.addr.value = val
 
@@ -48,8 +62,8 @@ async def query_cache(dut, ports):
 
     out = []
     for (port, _) in ports:
-        if dut.valid.value[PORTS - port - 1]:
-            out.append(dut.out.value[port*5:(port+1)*5-1])
+        if dut.valid.value & (1 << port):
+            out.append((dut.out.value >> (5 * port)) & 0b11111)
         else:
             # Cache miss!
             out.append(None)
@@ -72,14 +86,37 @@ async def test_a(dut):
         assert dut.tags.value[i*7:(i+1)*7-1].signed_integer == -64
 
     # Test on empty cache
-    # This is exploting the "INVALID" tag
+    # This is exploting the "INVALID" tag to get cache hits
     assert (await query_cache(dut, [(0, (-64, -64, -64))])) == [0]
     assert (await query_cache(dut, [(1, (-64, -64, -64))])) == [0]
     assert (await query_cache(dut, [(1, (0, 4, 62))])) == [None]
     assert (await query_cache(dut, [(0, (-64, -64, -64)), (1, (-64, -64, -64))])) == [0, 0]
     assert (await query_cache(dut, [(0, (0, 0, 0)), (1, (-64, -64, -64))])) == [None, 0]
 
-    await ClockCycles(dut.clk_in, 10)
+    # Manually put stuff in the cache
+    tags = dut.tags.value
+    entries = dut.entries.value
+    
+    tags[0:6]   = twos_complement(-3)
+    tags[7:13]  = twos_complement(42)
+    tags[14:20] = twos_complement(-21)
+    entries[0:4] = 0b11011
+
+    dut.tags.value = tags
+    dut.entries.value = entries
+
+    await ClockCycles(dut.clk_in, 3)
+
+    # Test on this new cache with one entry
+    assert (await query_cache(dut, [(0, (-64, -64, -64))])) == [0]
+    assert (await query_cache(dut, [(1, (-21, 42, -3))])) == [0b11011]
+    assert (await query_cache(dut, [(2, (0, 0, 0))])) == [None]
+    assert (await query_cache(dut, [(1, (-21, 42, -3))])) == [0b11011]
+    assert (await query_cache(dut, [(0, (0, 0, 0)), (1, (-21, 42, -3))])) == [None, 0b11011]
+    assert (await query_cache(dut, [(1, (0, 0, 0)), (0, (-21, 42, -3))])) == [None, 0b11011]
+    assert (await query_cache(dut, [(1, (-21, 42, -3)), (0, (-21, 42, -3))])) == [0b11011, 0b11011]
+
+    await ClockCycles(dut.clk_in, 5)
 
 
 def is_runner():

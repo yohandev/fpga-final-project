@@ -29,7 +29,7 @@ module l1_cache #(PORTS=4, CACHE_SIZE=16)(
     BlockType   [PORTS-1:0][CACHE_SIZE-1:0] lookup_tmp; // Data of (or 0) for each cache entry for each port
     BlockType   [PORTS-1:0]                 lookup_mux; // Data out for each port
 
-    genvar i, j;
+    genvar i, j, k;
     generate
         // Compute every port in parallel...
         for (i = 0; i < PORTS; i++) begin
@@ -39,8 +39,15 @@ module l1_cache #(PORTS=4, CACHE_SIZE=16)(
                 assign lookup_tmp[i][j] = lookup_cmp[i][j] ? entries[j] : BlockType'(0);
             end
             // Finally, merge all the lookups:
-            assign lookup_hit[i] = |lookup_cmp[i];
-            assign lookup_mux[i] = BlockType'(|lookup_tmp[i]);
+            always_comb begin
+                lookup_hit[i] = |lookup_cmp[i];
+                lookup_mux[i] = BlockType'(0);
+            end
+            for (k = 0; k < CACHE_SIZE; k++) begin
+                always_comb begin
+                    lookup_mux[i] |= lookup_tmp[i][k];
+                end
+            end
 
             always_ff @(posedge clk_in) begin
                 valid[i] <= lookup_hit[i];
