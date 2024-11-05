@@ -1,5 +1,7 @@
 `default_nettype none
 
+`include "types.sv"
+
 module top_level(
     input wire clk_100mhz,
     
@@ -24,13 +26,22 @@ module top_level(
 
     logic sys_rst = btn[0];
 
-    l1_cache #(.N(4)) l1_cache(
-        .clk_in(clk_100mhz),
-        .rst_in(sys_rst)
-    );
+    BlockPos [3:0] addr;
+    BlockType [3:0] out;
+    logic     [3:0] valid;
 
-    // Give Vivado something to synthesize for now
-    assign led[0] = btn[1];
+    // For now, use the switches as "inputs" to the cache so it
+    // doesn't get optimized out. Ditto for outputs
+    assign addr = {sw, sw, sw, sw, sw, sw};
+    // assign led = {valid, out};
+    
+    l1_cache l1_cache(
+        .clk_in(clk_100mhz),
+        .rst_in(sys_rst),
+        .addr(addr),
+        .out(out),
+        .valid(valid)
+    );
 endmodule
 
 `default_nettype wire
