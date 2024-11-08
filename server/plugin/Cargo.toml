@@ -8,3 +8,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 quill = { path = "../feather/quill/api" }
+serialport = "4.6.0"
