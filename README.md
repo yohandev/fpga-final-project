@@ -16,7 +16,7 @@ Next, let's start the server. In VSCode, run the `Start Server` task. This will 
 3. Copies over all the artifacts into `server/dummy`. That folder will eventually be populated with server configs, world files, etc.
 4. Starts the server
 
-Now you can join the server (in "multiplayer", click "Join Server" and go to `localhost`).
+Now you can join the server on **Minecraft 1.16.5** (in "multiplayer", click "Join Server" and go to `localhost`).
 
 ### Hardware
 1. Open this repository in VSCode.
