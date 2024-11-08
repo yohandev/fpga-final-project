@@ -143,7 +143,8 @@ def is_runner():
         build_args=build_test_args,
         parameters=parameters,
         timescale = ('1ns','1ps'),
-        waves=True
+        waves=True,
+        build_dir=(proj_path.parent / "sim_build")
     )
     run_test_args = []
     runner.test(

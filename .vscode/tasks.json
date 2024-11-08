@@ -42,6 +42,24 @@
 			},
 			"label": "Start Server",
 			"dependsOn": ["Prepare Dummy Server"]
-		}
+		},
+		{
+            "label": "Upload to FPGA",
+            "type": "shell",
+            "command": "openFPGALoader -b arty_s7_50 ./obj/final.bit",
+            "problemMatcher": [],
+			"options": {
+				"cwd": "./hw"
+			}
+        },
+        {
+            "label": "Build with lab-bc",
+            "type": "shell",
+            "command": "lab-bc run ./src",
+            "problemMatcher": [],
+			"options": {
+				"cwd": "./hw"
+			}
+        }
 	]
 }

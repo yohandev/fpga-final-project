@@ -1,1 +1,4 @@
 .DS_Store
+
+sim_build/
+lab_bc_client/

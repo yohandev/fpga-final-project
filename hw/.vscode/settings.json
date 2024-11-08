@@ -1,5 +1,0 @@
-{
-    "verilog.linting.iverilog.includePath": [
-        "./src/hdl"
-    ]
-}

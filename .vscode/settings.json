@@ -1,0 +1,6 @@
+{
+    "verilog.linting.iverilog.includePath": [
+        "./hw/src/hdl"
+    ],
+    "python.terminal.activateEnvInCurrentTerminal": false,
+}
