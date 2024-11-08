@@ -1,3 +1,0 @@
-[submodule "server/feather"]
-	path = server/feather
-	url = https://github.com/feather-rs/feather.git
