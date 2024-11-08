@@ -1,0 +1,10 @@
+[package]
+name = "fpgacraft-plugin"
+version = "0.1.0"
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+quill = { path = "../feather/quill/api" }

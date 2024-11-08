@@ -1,0 +1,47 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cargo",
+			"command": "build",
+			"problemMatcher": [
+				"$rustc"
+			],
+			"args": ["--release"],
+			"options": {
+				"cwd": "${workspaceFolder}/server/feather"
+			},
+			"group": "build",
+			"label": "Build Server",
+			"hide": true
+		},
+		{
+			"type": "process",
+			"command": "${workspaceFolder}/server/feather/target/release/cargo-quill",
+			"args": ["build", "--native"],
+			"options": {
+				"cwd": "${workspaceFolder}/server/plugin",
+			},
+			"group": "build",
+			"label": "Build Plugin",
+			"dependsOn": ["Build Server"],
+			"hide": true
+		},
+		{
+			"type": "shell",
+			"command": "mkdir -p ${workspaceFolder}/server/dummy/plugins && cp ${workspaceFolder}/server/feather/target/release/feather-server ${workspaceFolder}/server/dummy && cp ${workspaceFolder}/server/target/debug/fpgacraft-plugin.plugin ${workspaceFolder}/server/dummy/plugins",
+			"label": "Prepare Dummy Server",
+			"dependsOn": ["Build Server", "Build Plugin"],
+			"hide": true
+		},
+		{
+			"type": "process",
+			"command": "${workspaceFolder}/server/dummy/feather-server",
+			"options": {
+				"cwd": "${workspaceFolder}/server/dummy"
+			},
+			"label": "Start Server",
+			"dependsOn": ["Prepare Dummy Server"]
+		}
+	]
+}
