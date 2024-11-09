@@ -1,6 +1,8 @@
 //! This file is a bunch of boilerplate that lets us draw "something" on the
 //! screen. Don't worry too much about it.
 
+mod math;
+
 use nannou::{image::{DynamicImage, ImageBuffer}, prelude::*};
 
 const WIDTH: usize = 256;
