@@ -1,5 +1,5 @@
 
-use quill::{BlockPosition, Game, Plugin, Position};
+use quill::{Game, Plugin, Position};
 use serialport::{SerialPort, SerialPortType, UsbPortInfo};
 
 #[quill::plugin]
@@ -9,8 +9,8 @@ pub struct FpgaPlugin {
 
 impl Plugin for FpgaPlugin {
     fn enable(_game: &mut quill::Game, setup: &mut quill::Setup<Self>) -> Self {
-        // setup.add_system(system);
         setup.add_system(Self::connect_serial);
+        setup.add_system(Self::send_blocks);
         
         Self {
             serial: None
@@ -77,25 +77,16 @@ impl FpgaPlugin {
             println!("Connected to {port}!");
         }
     }
-}
 
-fn system(_plugin: &mut FpgaPlugin, game: &mut Game) {
-    // WARN: just like how sending absolutely everything (block-data-wise) is too slow,
-    // simply iterating over all those blocks is *also* too slow. we should only be querying the
-    // blocks we need to send over serial
-    for (_, pos) in game.query::<&Position>() {
-        let pos = pos.block();
-        let mut tally = 0;
-        for z in -64..64 {
-            for y in -64..64 {
-                for x in -64..64 {
-                    let Ok(_block) = game.block(pos + BlockPosition::new(x, y, z)) else {
-                        continue;
-                    };
-                    tally += 1;
-                }
+    fn send_blocks(&mut self, game: &mut Game) {
+        let Some(port) = &mut self.serial else {
+            return;
+        };
+
+        for (_, pos) in game.query::<&Position>() {
+            if let Ok(block) = game.block(pos.block()) {
+                port.write(&block.id().to_be_bytes()).unwrap();
             }
         }
-        println!("Just iterated the {tally} blocks around {pos:?}!");
     }
 }
