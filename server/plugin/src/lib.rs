@@ -28,11 +28,11 @@ impl FpgaPlugin {
         // No easy way to detect disconnects, so we do a random I/O operation and if
         // that fails just assume the port was closed.
         if let Some(port) = &self.serial {
-            if let Err(serialport::Error { kind: serialport::ErrorKind::NoDevice, .. }) = port.bytes_to_read() {
+            if let Err(serialport::Error { kind, .. }) = port.data_bits() {
                 // Explicitely close the port
                 drop(self.serial.take());
 
-                println!("Closed serial port!");
+                println!("Closed serial port because of {kind:?}!");
             } else {
                 // Port is open and active, don't try to open a new one!
                 return;
