@@ -26,42 +26,16 @@ impl Fixed {
     /// Inverse square root, as would be implemented in hardware
     pub fn inv_sqrt(self) -> Self {
         // https://www.shironekolabs.com/posts/efficient-approximate-square-roots-and-division-in-verilog/
+        fn lut(i: u32) -> Fixed {
+            match i {
+                31 => fixed!(1.0 / f32!(Fixed(0b1)).sqrt()),
+                0..=30 => fixed!(1.0 / f32!(Fixed(0b11 << (30 - i))).sqrt()),
+                _ => fixed!(0.0)
+            }
+        }
+
         // First iteration (LUT):
-        let iter0 = match self.0.leading_zeros() {
-            31 => fixed!(1.0 / f32!(Fixed(0b1)).sqrt()),
-            30 => fixed!(1.0 / f32!(Fixed(0b11 << 0)).sqrt()),
-            29 => fixed!(1.0 / f32!(Fixed(0b11 << 1)).sqrt()),
-            28 => fixed!(1.0 / f32!(Fixed(0b11 << 2)).sqrt()),
-            27 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            26 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            25 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            24 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            23 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            22 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            21 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            20 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            19 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            18 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            17 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            16 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            15 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            14 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            13 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            12 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            11 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            10 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            9 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            8 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            7 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            6 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            5 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            4 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            3 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            2 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            1 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            0 => fixed!(1.0 / f32!(Fixed(0b11 << 3)).sqrt()),
-            _ => fixed!(0.0),
-        };
+        let iter0 = lut(self.0.leading_zeros());
 
         // Second and third iterations (Newton's method)
         // x(n+1) = x(n) * (1.5 - (0.5 * val * x(n)^2))
