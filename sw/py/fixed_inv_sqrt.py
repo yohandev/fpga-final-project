@@ -3,9 +3,7 @@ import numpy as np
 
 from math import sqrt
 
-
 D = 15
-
 
 def fixed(f): return int(f * (1 << D))
 def f32(fx): return float(fx / (1 << D))
