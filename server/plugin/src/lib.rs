@@ -1,19 +1,34 @@
+mod block;
 
-use quill::{Game, Plugin, Position};
+use std::{fs::File, os::unix::fs::FileExt};
+
+use block::Block;
+use quill::{BlockKind, BlockPosition, Game, Plugin, Position};
 use serialport::{SerialPort, SerialPortType, UsbPortInfo};
 
 #[quill::plugin]
 pub struct FpgaPlugin {
     serial: Option<Box<dyn SerialPort>>,
+
+    /// Latest chunk data sent to the FPGA
+    chunk_data: Box<[Block]>,
+    /// Center of the [FpgaPlugin::chunk_data] in world cordiantes
+    chunk_center: Option<BlockPosition>,
+    /// Handle for chunk.bin
+    chunk_file: File,
 }
 
 impl Plugin for FpgaPlugin {
     fn enable(_game: &mut quill::Game, setup: &mut quill::Setup<Self>) -> Self {
         setup.add_system(Self::connect_serial);
         setup.add_system(Self::send_blocks);
-        
+        setup.add_system(Self::save_chunk_local);
+
         Self {
-            serial: None
+            serial: None,
+            chunk_data: vec![Block::Air; Self::CHUNK_SIZE.pow(3)].into_boxed_slice(),
+            chunk_center: Default::default(),
+            chunk_file: File::create("chunk.bin").unwrap(),
         }
     }
 
@@ -22,6 +37,7 @@ impl Plugin for FpgaPlugin {
 
 impl FpgaPlugin {
     const SERIAL_BAUD: u32 = 115200;
+    const CHUNK_SIZE: usize = 128;
 
     /// Attempts to connect the FPGA each frame
     fn connect_serial(&mut self, _: &mut Game) {
@@ -78,6 +94,8 @@ impl FpgaPlugin {
         }
     }
 
+    /// Sends blocks to the FPGA
+    /// TODO: (Win Win) change this. see [FpgaPlugin::save_chunk_local] for inspiration
     fn send_blocks(&mut self, game: &mut Game) {
         let Some(port) = &mut self.serial else {
             return;
@@ -88,5 +106,51 @@ impl FpgaPlugin {
                 port.write(&block.id().to_be_bytes()).unwrap();
             }
         }
+    }
+
+    /// Saves the entire 128*128*128 chunk near the player each time they move. This creates/modifies
+    /// a local file "chunk.bin", which can be used for debugging and to compare against the software
+    /// implementation.
+    fn save_chunk_local(&mut self, game: &mut Game) {
+        const HALF_CHUNK_SIZE: i32 = (FpgaPlugin::CHUNK_SIZE as i32) / 2;
+        
+        // Take the position of the first player
+        let Some((_, pos)) = game.query::<&Position>().next() else {
+            return;
+        };
+        let pos = pos.block();
+
+        // No movement, do nothing
+        if self.chunk_center == Some(pos) {
+            return;
+        }
+        self.chunk_center = Some(pos);
+
+        // This is pretty inefficient, as we have to query the entire chunk
+        for (i, block) in self.chunk_data.iter_mut().enumerate() {
+            // 1D -> 3D index
+            let x = i % Self::CHUNK_SIZE;
+            let y = (i / Self::CHUNK_SIZE) % Self::CHUNK_SIZE;
+            let z = i / (Self::CHUNK_SIZE * Self::CHUNK_SIZE);
+
+            // Recenter around pos
+            let p = BlockPosition {
+                x: (x as i32) - HALF_CHUNK_SIZE + pos.x,
+                y: (y as i32) - HALF_CHUNK_SIZE + pos.y,
+                z: (z as i32) - HALF_CHUNK_SIZE + pos.z,
+            };
+
+            if let Ok(state) = game.block(p) {
+                // Convert into our block type
+                *block = BlockKind::from_id(state.id() as _).unwrap_or(BlockKind::Air).into();
+            }
+        }
+
+        // Save file
+        let data = unsafe { std::mem::transmute(&*self.chunk_data) };
+
+        if let Err(e) = self.chunk_file.write_all_at(data, 0) {
+            eprintln!("Error writing chunk.bin! {e}");
+        };
     }
 }
