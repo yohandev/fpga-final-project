@@ -4,7 +4,7 @@ use std::ops;
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Fixed(i32);
 
-/// Converts a floating point literal to a fixed
+/// Converts a floating point to a fixed
 #[macro_export]
 macro_rules! fixed {
     ($x:expr) => {
@@ -22,6 +22,10 @@ macro_rules! f32 {
 impl Fixed {
     /// Number of fractional bits
     pub const D: usize = 15;
+
+    pub fn floor(self) -> i32 {
+        self.0 >> Fixed::D
+    }
 
     /// Inverse square root, as would be implemented in hardware
     pub fn inv_sqrt(self) -> Self {

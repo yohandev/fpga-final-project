@@ -1,6 +1,6 @@
 use std::ops;
 
-use crate::math::Fixed;
+use crate::math::{Fixed, Vec3i};
 
 /// A 3-dimensional vector
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -21,6 +21,14 @@ impl Vec3 {
 
     pub fn normalized(self) -> Self {
         self * self.magnitude_squared().inv_sqrt()
+    }
+
+    pub fn floor(self) -> Vec3i {
+        Vec3i {
+            x: self.x.floor(),
+            y: self.y.floor(),
+            z: self.z.floor(),
+        }
     }
 }
 
