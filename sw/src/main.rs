@@ -1,7 +1,10 @@
 //! This file is a bunch of boilerplate that lets us draw "something" on the
 //! screen. Don't worry too much about it.
 
+mod vtu;
 mod math;
+mod block;
+mod cache;
 
 use nannou::{image::{DynamicImage, ImageBuffer}, prelude::*};
 
