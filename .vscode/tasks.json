@@ -18,7 +18,7 @@
 		{
 			"type": "process",
 			"command": "${workspaceFolder}/server/feather/target/release/cargo-quill",
-			"args": ["build", "--native"],
+			"args": ["build", "--native", "--release"],
 			"options": {
 				"cwd": "${workspaceFolder}/server/plugin",
 			},
@@ -29,7 +29,7 @@
 		},
 		{
 			"type": "shell",
-			"command": "mkdir -p ${workspaceFolder}/server/dummy/plugins && cp ${workspaceFolder}/server/feather/target/release/feather-server ${workspaceFolder}/server/dummy && cp ${workspaceFolder}/server/target/debug/fpgacraft-plugin.plugin ${workspaceFolder}/server/dummy/plugins",
+			"command": "mkdir -p ${workspaceFolder}/server/dummy/plugins && cp ${workspaceFolder}/server/feather/target/release/feather-server ${workspaceFolder}/server/dummy && cp ${workspaceFolder}/server/target/release/fpgacraft-plugin.plugin ${workspaceFolder}/server/dummy/plugins",
 			"label": "Prepare Dummy Server",
 			"dependsOn": ["Build Server", "Build Plugin"],
 			"hide": true
