@@ -1,6 +1,7 @@
 use crate::{block::Block, math::Vec3i};
 
 /// Unrealistic cache with instant access, for testing
+#[derive(Debug)]
 pub struct MockCache {
     chunk: &'static [Block]
 }
