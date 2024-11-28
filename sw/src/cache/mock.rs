@@ -22,7 +22,7 @@ impl MockCache {
     /// Size of the cache in one dimension
     pub const SIZE: usize = 128;
 
-    pub fn query(&mut self, idx: Vec3i) -> Option<Block> {
+    pub fn query(&self, idx: Vec3i) -> Option<Block> {
         const HALF_CHUNK_SIZE: i32 = (MockCache::SIZE as i32) / 2;
         
         // Re-center position in chunk
@@ -31,7 +31,7 @@ impl MockCache {
         let z: usize = (idx.z + HALF_CHUNK_SIZE).try_into().ok()?;
 
         // Out of bounds
-        if x > Self::SIZE || y > Self::SIZE || z > Self::SIZE {
+        if x >= Self::SIZE || y >= Self::SIZE || z >= Self::SIZE {
             return None;
         }
 

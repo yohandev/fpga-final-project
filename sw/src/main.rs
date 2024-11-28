@@ -1,15 +1,20 @@
 //! This file is a bunch of boilerplate that lets us draw "something" on the
-//! screen. Don't worry too much about it.
+//! screen. Don't worry too much about it. See `top_level.rs`
 
 mod vtu;
 mod math;
 mod block;
 mod cache;
+mod top_level;
+mod orchestrator;
 
+use math::Vec3;
 use nannou::{image::{DynamicImage, ImageBuffer}, prelude::*};
+use orchestrator::Orchestrator;
+use top_level::TopLevel;
 
-const WIDTH: usize = 256;
-const HEIGHT: usize = 128;
+const WIDTH: usize = Orchestrator::FRAME_WIDTH;
+const HEIGHT: usize = Orchestrator::FRAME_HEIGHT;
 
 fn main() {
     nannou::app(model)
@@ -19,10 +24,7 @@ fn main() {
 
 #[derive(Debug, Default)]
 struct Model {
-    // TODO: put the FPGA stuff here instead
-    rgb: [u8; 3],
-    i: u8,
-    j: u8,
+    top_level: TopLevel,
 }
 
 fn model(app: &App) -> Model {
@@ -31,43 +33,39 @@ fn model(app: &App) -> Model {
         .size((WIDTH * 3) as _, (HEIGHT * 3) as _)
         .resizable(false)
         .view(view)
+        .key_pressed(key_pressed)
         .build()
         .unwrap();
 
     Default::default()
 }
 
-fn update(_: &App, model: &mut Model, _: Update) {
-    // TODO: step "FPGA" loop here
-    // Some random RGB logic for now
-    let j = model.j as usize;
-    let k = (j + 1) % 3;
+fn update(_: &App, model: &mut Model, _: Update) {    
+    // Step "FPGA" loop
+    model.top_level.rising_clk_edge();
+}
 
-    model.rgb[j] = model.rgb[j].wrapping_sub(1);
-    model.rgb[k] = model.rgb[k].wrapping_add(1);
-    
-    if model.i == 255 {
-        model.i = 0;
-        model.j = (model.j + 1) % 3;
-    } else {
-        model.i += 1;
+fn key_pressed(_: &App, model: &mut Model, key: Key) {
+    match key {
+        Key::I => model.top_level.orchestrator.camera_pos += Vec3::FORWARD,
+        Key::K => model.top_level.orchestrator.camera_pos -= Vec3::FORWARD,
+        Key::L => model.top_level.orchestrator.camera_pos += Vec3::RIGHT,
+        Key::J => model.top_level.orchestrator.camera_pos -= Vec3::RIGHT,
+        Key::Space => model.top_level.orchestrator.camera_pos += Vec3::UP,
+        Key::M => model.top_level.orchestrator.camera_pos -= Vec3::UP,
+        _ => {}
     }
+    println!("{}", model.top_level.orchestrator.camera_pos)
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {
-    // Generate the frame (TODO: get this from "FPGA" logic)
-    let mut frame_out = [0u16; WIDTH * HEIGHT];
-
-    let r = ((model.rgb[0] >> 3) as u16) << 11;
-    let g = ((model.rgb[1] >> 2) as u16) << 5;
-    let b = (model.rgb[2] >> 3) as u16;
-    
-    frame_out.fill(r | g | b);
+    // Get the frame from the FPGA
+    let frame_out = &model.top_level.orchestrator.frame_buffer;
 
     // Convert to something WGPU can use (rgb565 -> rgb8)
     let frame_wgpu = frame_out
         .iter()
-        .flat_map(|rgb| [rgb >> 11, (rgb >> 5) & 0x3F, rgb & 0x1F])
+        .flat_map(|rgb| [rgb.r(), rgb.g(), rgb.b()])
         .map(|n| n as u8)
         .collect::<Vec<_>>();
     let frame_wgpu = ImageBuffer::from_vec(WIDTH as _, HEIGHT as _, frame_wgpu).unwrap();

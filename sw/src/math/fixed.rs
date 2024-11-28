@@ -1,4 +1,4 @@
-use std::ops;
+use std::{fmt, ops};
 
 /// Fixed point number
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -9,7 +9,7 @@ pub struct Fixed(i32);
 macro_rules! fixed {
     ($x:expr) => {
         // Identity is used for type checking
-        Fixed((std::convert::identity::<f32>($x) * (1 << Fixed::D) as f32) as _)
+        crate::math::Fixed::from_raw((std::convert::identity::<f32>($x) * (1 << crate::math::Fixed::D) as f32) as _)
     };
 }
 
@@ -23,8 +23,19 @@ impl Fixed {
     /// Number of fractional bits
     pub const D: usize = 15;
 
+    pub const MAX: Self = Self(i32::MAX);
+    pub const MIN: Self = Self(i32::MIN);
+
+    pub const fn from_raw(x: i32) -> Self {
+        Self(x)
+    }
+
     pub fn floor(self) -> i32 {
         self.0 >> Fixed::D
+    }
+
+    pub fn abs(self) -> Self {
+        Self(self.0.abs())
     }
 
     /// Inverse square root, as would be implemented in hardware
@@ -100,6 +111,14 @@ impl ops::Mul for Fixed {
     }
 }
 
+impl ops::Neg for Fixed {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self(-self.0)
+    }
+}
+
 impl ops::AddAssign for Fixed {
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
@@ -115,5 +134,17 @@ impl ops::SubAssign for Fixed {
 impl ops::MulAssign for Fixed {
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
+    }
+}
+
+impl From<i32> for Fixed {
+    fn from(value: i32) -> Self {
+        Self(value << Self::D)
+    }
+}
+
+impl fmt::Display for Fixed {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", f32!(self))
     }
 }
