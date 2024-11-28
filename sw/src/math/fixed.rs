@@ -72,7 +72,7 @@ impl Fixed {
         }
 
         // First iteration (LUT)
-        let iter0 = lut((self.0 >> (Fixed::D - 6)) & 63);
+        let iter0 = Self(lut((self.0.abs() >> (Fixed::D - 6)) & 63).0 * self.0.signum());
 
         // Second and third iterations (Newton's method)
         // x(n+1) = 2*x(n) - val * x(n)^2

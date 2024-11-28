@@ -23,8 +23,8 @@ LUT = [fixed(1 / f32(i << (D - 6))) if i != 0 else fixed(1) for i in range(64)]
 
 def fixed_recip_lte1(fx):
     # First iteration (LUT)
-    idx = (fx >> (D - 6)) & 63 # index into LUT is 6 MSB of fractional part
-    iter0 = LUT[idx]
+    idx = (abs(fx) >> (D - 6)) & 63 # index into LUT is 6 MSB of fractional part
+    iter0 = LUT[idx] * (1 if fx > 0 else -1)
     
     # Second iteration (Newton)
     iter1 = (iter0 << 1) - fixed_mul(fx, fixed_mul(iter0, iter0))
@@ -38,9 +38,9 @@ def err(f):
     actual = 1 / f
     predicted = f32(fixed_recip_lte1(fixed(f)))
     
-    return abs(actual - predicted) / actual
+    return abs(actual - predicted) / abs(actual)
 
-x = np.arange(0.001, 1, 0.00001)
+x = np.arange(-1, 1, 0.000001)
 y = [100 * err(i) for i in x]
 
 fig, ax = plt.subplots()
