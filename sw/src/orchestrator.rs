@@ -17,10 +17,10 @@ pub struct Orchestrator {
 
     /// Camera position as being currently rendered
     camera_pos: Vec3,
-    /// TODO: change this to many VTUs
-    vtu: VoxelTraversalUnit,
+    /// Instances of the VTUs
+    vtu: [VoxelTraversalUnit; 2],
     /// L2 cache shared by all the VTUs
-    l2: Rc<RefCell<L2Cache<1, 16>>>,
+    l2: Rc<RefCell<L2Cache<2, 16>>>,
     /// L3 cache shared by all the VTUs
     l3: Rc<RefCell<L3Cache>>,
     /// Index of the next pixel to be rendered
@@ -42,7 +42,7 @@ impl Default for Orchestrator {
             camera_heading_in: Default::default(),
             frame_done_out: Default::default(),
             camera_pos: Default::default(),
-            vtu: Default::default(),
+            vtu: std::array::from_fn(|i| VoxelTraversalUnit::default().with_index(i)),
             l2: Default::default(),
             l3: Default::default(),
             next_pixel: Default::default(),
@@ -80,22 +80,22 @@ impl Orchestrator {
         let viewport_corner = self.camera_pos_in - (w * fixed!(1.0)) - ((viewport_u + viewport_v) * fixed!(0.5));
         let pixel_center = viewport_corner + ((pixel_delta_x + pixel_delta_y) * fixed!(0.5));
 
-        self.vtu.ray_origin_in = self.camera_pos_in;
+        self.vtu[0].ray_origin_in = self.camera_pos_in;
         for (i, px) in self.frame_buffer_out.iter_mut().enumerate() {
             let x: Fixed = ((i % Self::FRAME_WIDTH) as i32).into();
             let y: Fixed = ((i / Self::FRAME_WIDTH) as i32).into();
             
             let pixel = pixel_center + (pixel_delta_x * x) + (pixel_delta_y * y);
             
-            let light = self.vtu.normal_out.dot(Vec3::new(fixed!(1.0), fixed!(-5.0), fixed!(2.0)).normalized());
+            let light = self.vtu[0].normal_out.dot(Vec3::new(fixed!(1.0), fixed!(-5.0), fixed!(2.0)).normalized());
             let light = fixed!(0.4) + fixed!(0.2) * light;
             let apply_light = |c| (Fixed::from(c) * light).floor() as u8;
             let apply_light_rgb = |r, g, b| Rgb565::new(apply_light(r), apply_light(g), apply_light(b));
 
-            self.vtu.ray_direction_in = pixel - self.camera_pos_in;
-            self.vtu.mock_cast();
+            self.vtu[0].ray_direction_in = pixel - self.camera_pos_in;
+            self.vtu[0].mock_cast();
 
-            match self.vtu.voxel_out {
+            match self.vtu[0].voxel_out {
                 Block::Air => *px = Rgb565::new(174, 200, 235),
                 Block::Water => *px = apply_light_rgb(52, 67, 138),
                 _ => *px = apply_light_rgb(98, 168, 98),
@@ -108,12 +108,16 @@ impl Orchestrator {
         // Reset
         (*self.l2).borrow_mut().reset = self.reset;
         (*self.l3).borrow_mut().reset = self.reset;
-        self.vtu.reset = self.reset;
+        for vtu in &mut self.vtu {
+            vtu.reset = self.reset;
+        }
         
         // Clock edge
         (*self.l2).borrow_mut().rising_clk_edge();
         (*self.l3).borrow_mut().rising_clk_edge();
-        self.vtu.rising_clk_edge();
+        for vtu in &mut self.vtu {
+            vtu.rising_clk_edge();
+        }
 
         // Reset
         if self.reset {
@@ -126,7 +130,9 @@ impl Orchestrator {
             self.pixel_delta_v = Vec3::default();
             
             (*self.l2).borrow_mut().l3 = Rc::clone(&self.l3);
-            self.vtu.l2 = Rc::clone(&self.l2);
+            for vtu in &mut self.vtu {
+                vtu.l2 = Rc::clone(&self.l2);
+            }
             return;
         }
 
@@ -154,29 +160,39 @@ impl Orchestrator {
             let viewport_corner = self.camera_pos_in - (w * fixed!(1.0)) - ((viewport_u + viewport_v) * fixed!(0.5));
             self.pixel0_loc = viewport_corner + ((self.pixel_delta_u + self.pixel_delta_v) * fixed!(0.5));
 
-            self.vtu.ray_direction_in = self.pixel0_loc - self.camera_pos_in;
-            self.vtu.ray_origin_in = self.camera_pos_in;
-            self.vtu.ray_init_in = true;
+            // TODO: change me. right now they all compute the first pixel
+            for vtu in &mut self.vtu {
+                vtu.ray_direction_in = self.pixel0_loc - self.camera_pos_in;
+                vtu.ray_origin_in = self.camera_pos_in;
+                vtu.ray_init_in = true;
+                vtu.current_pixel = 0;
+            }
 
             // TODO: this will probably require more cycles
             return;
         }
 
         // Draw current pixel
-        self.vtu.ray_init_in = false;
+        for vtu in &mut self.vtu {
+            vtu.ray_init_in = false;
+        }
 
         // VTU is done rendering a pixel!
-        if self.vtu.valid_out {
-            let px = &mut self.frame_buffer_out[self.next_pixel];
+        for vtu in &mut self.vtu {
+            if !vtu.valid_out {
+                continue;
+            }
+
+            let px = &mut self.frame_buffer_out[vtu.current_pixel];
 
             let sun = Vec3 {
                 x: fixed!(1.0),
                 y: fixed!(-5.0),
                 z: fixed!(2.0)
             };
-            let light = fixed!(0.4) + fixed!(0.2) * self.vtu.normal_out.dot(sun.normalized());
+            let light = fixed!(0.4) + fixed!(0.2) * vtu.normal_out.dot(sun.normalized());
 
-            *px = match self.vtu.voxel_out {
+            *px = match vtu.voxel_out {
                 Block::Air => Rgb565::new(174, 200, 235),
                 Block::Water => Rgb565::new(52, 67, 138),
                 Block::Grass => Rgb565::new(90, 133, 77),
@@ -185,7 +201,7 @@ impl Orchestrator {
                 Block::OakLeaves => Rgb565::new(129, 165, 118),
                 _ => Rgb565::new(82, 70, 84),
             };
-            if self.vtu.voxel_out != Block::Air {
+            if vtu.voxel_out != Block::Air {
                 *px *= light;
             }
 
@@ -195,9 +211,14 @@ impl Orchestrator {
             let y = ((self.next_pixel / Self::FRAME_WIDTH) as i32).into();
             let pixel_loc = self.pixel0_loc + (self.pixel_delta_u * x) + (self.pixel_delta_v * y);
 
-            self.vtu.ray_direction_in = pixel_loc - self.camera_pos;
-            self.vtu.ray_origin_in = self.camera_pos;
-            self.vtu.ray_init_in = true;
+            vtu.ray_direction_in = pixel_loc - self.camera_pos;
+            vtu.ray_origin_in = self.camera_pos;
+            vtu.current_pixel = self.next_pixel;
+            vtu.ray_init_in = true;
+
+            // Can only service one VTU at a time
+            // Static priority arbitration
+            break;
         }
     }
 }

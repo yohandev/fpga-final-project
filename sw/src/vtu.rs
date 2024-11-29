@@ -6,6 +6,12 @@ use crate::{block::Block, cache::{L2Cache, MockCache}, fixed, math::{Fixed, Vec3
 pub struct VoxelTraversalUnit {
     /// Reset VTU to a known state
     pub reset: bool,
+    /// The index of this VTU.
+    /// Note: in Verilog, this would be statically determined using a genvar block, but
+    /// in Rust using (equivalent) const-generic leads to more trouble than it's worth
+    pub index: usize,
+    /// The current pixel being computed
+    pub current_pixel: usize,
     /// World-space coordinate where the ray begins, e.g. camera's position
     pub ray_origin_in: Vec3,
     /// Heading of the ray. Doesn't need to be normalized.
@@ -20,7 +26,7 @@ pub struct VoxelTraversalUnit {
     pub valid_out: bool,
     /// Reference to an L2 cache used for cache misses
     /// TODO: store also an L1 cache
-    pub l2: Rc<RefCell<L2Cache<1, 16>>>,
+    pub l2: Rc<RefCell<L2Cache<2, 16>>>,
 
     /// Normalized ray direction being traversed
     ray_direction: Vec3,
@@ -50,6 +56,11 @@ enum Axis {
 }
 
 impl VoxelTraversalUnit {
+    pub fn with_index(mut self, i: usize) -> Self {
+        self.index = i;
+        self
+    }
+
     /// Unrealistic ray cast that finishes instantly, for testing
     pub fn mock_cast(&mut self) {
         let cache = MockCache::default();
@@ -163,7 +174,7 @@ impl VoxelTraversalUnit {
             self.last_step = Axis::None;
 
             // Memory access
-            l2.read_enable_in[0] = false;
+            l2.read_enable_in[self.index] = false;
             return;
         }
 
@@ -208,8 +219,8 @@ impl VoxelTraversalUnit {
             self.num_steps = 0;
             self.valid_out = false;
 
-            l2.read_enable_in[0] = true;
-            l2.addr_in[0] = self.ray_position;
+            l2.read_enable_in[self.index] = true;
+            l2.addr_in[self.index] = self.ray_position;
 
             return;
         }
@@ -224,20 +235,18 @@ impl VoxelTraversalUnit {
             self.voxel_out = Block::Air;
             self.valid_out = true;
 
-            l2.read_enable_in[0] = false;
+            l2.read_enable_in[self.index] = false;
             return;
         }
-
-        // TODO: VTU index
         
         // Stall until we can read the block
-        if !l2.valid_out[0] {
+        if !l2.valid_out[self.index] {
             return;
         }
 
         // Hit a block!
-        if l2.voxel_out[0] != Block::Air {
-            self.voxel_out = l2.voxel_out[0];
+        if l2.voxel_out[self.index] != Block::Air {
+            self.voxel_out = l2.voxel_out[self.index];
             self.valid_out = true;
             self.normal_out = match self.last_step {
                 Axis::None => Default::default(),
@@ -246,7 +255,7 @@ impl VoxelTraversalUnit {
                 Axis::Z => Fixed::from(-self.ray_step.z) * Vec3::FORWARD,
             };
             
-            l2.read_enable_in[0] = false;
+            l2.read_enable_in[self.index] = false;
             return;
         }
 
@@ -274,7 +283,7 @@ impl VoxelTraversalUnit {
         }
         self.num_steps += 1;
 
-        l2.read_enable_in[0] = true;
-        l2.addr_in[0] = self.ray_position;
+        l2.read_enable_in[self.index] = true;
+        l2.addr_in[self.index] = self.ray_position;
     }
 }
