@@ -1,3 +1,9 @@
+use std::ops;
+
+use crate::fixed;
+
+use super::Fixed;
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Rgb565(u16);
 
@@ -24,5 +30,31 @@ impl Rgb565 {
     /// Blue channel, scaled back to 0..=255
     pub const fn b(&self) -> u8 {
         ((self.0 & 0b11111) as u8) << 3
+    }
+}
+
+impl ops::Mul<Fixed> for Rgb565 {
+    type Output = Self;
+
+    fn mul(self, rhs: Fixed) -> Self::Output {
+        Self::new(
+            (Fixed::from(self.r() as i32) * rhs).floor() as _,
+            (Fixed::from(self.g() as i32) * rhs).floor() as _,
+            (Fixed::from(self.b() as i32) * rhs).floor() as _,
+        )
+    }
+}
+
+impl ops::Mul<Rgb565> for Fixed {
+    type Output = Rgb565;
+
+    fn mul(self, rhs: Rgb565) -> Self::Output {
+        rhs * self
+    }
+}
+
+impl ops::MulAssign<Fixed> for Rgb565 {
+    fn mul_assign(&mut self, rhs: Fixed) {
+        *self = *self * rhs;
     }
 }

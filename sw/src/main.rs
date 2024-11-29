@@ -37,30 +37,51 @@ fn model(app: &App) -> Model {
         .build()
         .unwrap();
 
-    Default::default()
+    let mut top_level = TopLevel::default();
+
+    top_level.reset = true;
+    top_level.rising_clk_edge();
+    top_level.reset = false;
+
+    Model {
+        top_level,
+    }
 }
 
 fn update(_: &App, model: &mut Model, _: Update) {    
     // Step "FPGA" loop
-    model.top_level.rising_clk_edge();
+    let mut i = 0;
+    let start = std::time::Instant::now();
+
+    while !model.top_level.orchestrator.frame_done_out {
+        model.top_level.rising_clk_edge();
+        i += 1;
+    }
+    while model.top_level.orchestrator.frame_done_out {
+        model.top_level.rising_clk_edge();
+    }
+
+    let duration = std::time::Instant::now() - start;
+
+    println!("Took {i} cycles, simulation ran for {}ms", duration.as_millis());
 }
 
 fn key_pressed(_: &App, model: &mut Model, key: Key) {
     match key {
-        Key::I => model.top_level.orchestrator.camera_pos += Vec3::FORWARD,
-        Key::K => model.top_level.orchestrator.camera_pos -= Vec3::FORWARD,
-        Key::L => model.top_level.orchestrator.camera_pos += Vec3::RIGHT,
-        Key::J => model.top_level.orchestrator.camera_pos -= Vec3::RIGHT,
-        Key::Space => model.top_level.orchestrator.camera_pos += Vec3::UP,
-        Key::M => model.top_level.orchestrator.camera_pos -= Vec3::UP,
+        Key::I => model.top_level.orchestrator.camera_pos_in += Vec3::FORWARD,
+        Key::K => model.top_level.orchestrator.camera_pos_in -= Vec3::FORWARD,
+        Key::L => model.top_level.orchestrator.camera_pos_in += Vec3::RIGHT,
+        Key::J => model.top_level.orchestrator.camera_pos_in -= Vec3::RIGHT,
+        Key::Space => model.top_level.orchestrator.camera_pos_in += Vec3::UP,
+        Key::M => model.top_level.orchestrator.camera_pos_in -= Vec3::UP,
         _ => {}
     }
-    println!("{}", model.top_level.orchestrator.camera_pos)
+    println!("{}", model.top_level.orchestrator.camera_pos_in)
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {
     // Get the frame from the FPGA
-    let frame_out = &model.top_level.orchestrator.frame_buffer;
+    let frame_out = &model.top_level.orchestrator.frame_buffer_out;
 
     // Convert to something WGPU can use (rgb565 -> rgb8)
     let frame_wgpu = frame_out

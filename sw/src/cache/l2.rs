@@ -1,4 +1,4 @@
-use std::{cell::RefCell, iter::zip};
+use std::{cell::RefCell, iter::zip, rc::Rc};
 
 use crate::{block::Block, math::Vec3i};
 
@@ -17,8 +17,8 @@ pub struct L2Cache<const P: usize, const S: usize> {
     pub voxel_out: [Block; P],
     /// Whether [L2Cache::voxel_out] corresponds to the address inputted
     pub valid_out: [bool; P],
-    /// Reference to an L2 cache used for cache misses
-    pub l3: RefCell<L3Cache>,
+    /// Reference to an L3 cache used for cache misses
+    pub l3: Rc<RefCell<L3Cache>>,
 
     /// Entries in the cache
     entries: [Option<Entry>; S],
@@ -59,9 +59,9 @@ impl<const P: usize, const S: usize> L2Cache<P, S> {
         }
         
         // Respond to each port's query...
-        for ((&addr, ra), (voxel, valid)) in zip(zip(&self.addr_in, &self.read_enable_in), zip(&mut self.voxel_out, &mut self.valid_out)) {
+        for ((&addr, re), (voxel, valid)) in zip(zip(&self.addr_in, &self.read_enable_in), zip(&mut self.voxel_out, &mut self.valid_out)) {
             *valid = false;
-            if !ra {
+            if !re {
                 continue;
             }
 

@@ -20,7 +20,13 @@ pub struct TopLevel {
 
 impl TopLevel {
     pub fn rising_clk_edge(&mut self) {
-        self.orchestrator.camera_heading = Vec3::FORWARD;
-        self.orchestrator.mock_render();
+        // Propagate signals to owned submodules
+        self.orchestrator.reset = self.reset;
+        self.orchestrator.rising_clk_edge();
+
+        if self.reset {
+            self.orchestrator.camera_heading_in = Vec3::FORWARD;
+            self.orchestrator.camera_pos_in = Vec3::default();
+        }
     }
 }
