@@ -10,6 +10,16 @@
 
 use crate::{math::Vec3, orchestrator::Orchestrator};
 
+/// How many instances of voxel traversal units (VTU) we have.
+/// 
+/// Lower numbers (e.g. 1) are good for simulation in realtime, but higher
+/// numbers (e.g. 16) give us a better idea of how it will perform in hardware,
+/// at the cost of running simulation at ~1FPS
+pub const NUM_VTU: usize = 1;
+
+/// How many entries in the L2 cache
+pub const NUM_L2_ENTRIES: usize = 16;
+
 #[derive(Debug, Default)]
 pub struct TopLevel {
     /// Signal to reset the module

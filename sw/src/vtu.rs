@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{block::Block, cache::{L2Cache, MockCache}, fixed, math::{Fixed, Vec3, Vec3i}};
+use crate::{block::Block, cache::{L2Cache, MockCache}, fixed, math::{Fixed, Vec3, Vec3i}, top_level::{NUM_L2_ENTRIES, NUM_VTU}};
 
 #[derive(Debug, Default)]
 pub struct VoxelTraversalUnit {
@@ -26,7 +26,7 @@ pub struct VoxelTraversalUnit {
     pub valid_out: bool,
     /// Reference to an L2 cache used for cache misses
     /// TODO: store also an L1 cache
-    pub l2: Rc<RefCell<L2Cache<2, 16>>>,
+    pub l2: Rc<RefCell<L2Cache<{NUM_VTU}, {NUM_L2_ENTRIES}>>>,
 
     /// Normalized ray direction being traversed
     ray_direction: Vec3,

@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{block::Block, cache::{L2Cache, L3Cache}, fixed, math::{Fixed, Rgb565, Vec3}, vtu::VoxelTraversalUnit};
+use crate::{block::Block, cache::{L2Cache, L3Cache}, fixed, math::{Fixed, Rgb565, Vec3}, top_level::{NUM_L2_ENTRIES, NUM_VTU}, vtu::VoxelTraversalUnit};
 
 #[derive(Debug)]
 pub struct Orchestrator {
@@ -18,9 +18,9 @@ pub struct Orchestrator {
     /// Camera position as being currently rendered
     camera_pos: Vec3,
     /// Instances of the VTUs
-    vtu: [VoxelTraversalUnit; 2],
+    vtu: [VoxelTraversalUnit; NUM_VTU],
     /// L2 cache shared by all the VTUs
-    l2: Rc<RefCell<L2Cache<2, 16>>>,
+    l2: Rc<RefCell<L2Cache<{NUM_VTU}, {NUM_L2_ENTRIES}>>>,
     /// L3 cache shared by all the VTUs
     l3: Rc<RefCell<L3Cache>>,
     /// Index of the next pixel to be rendered
