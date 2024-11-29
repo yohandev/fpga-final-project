@@ -5,7 +5,7 @@
 //  - Fully associative cache
 //
 // consider direct mapped cache? 
-module l1_cache #(PORTS=4, CACHE_SIZE=16)(
+module l2_cache #(PORTS=4, CACHE_SIZE=16)(
     input wire clk_in,
     input wire rst_in,
 

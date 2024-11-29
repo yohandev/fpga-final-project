@@ -35,7 +35,7 @@ module top_level(
     assign addr = {sw, sw, sw, sw, sw, sw};
     // assign led = {valid, out};
     
-    l1_cache l1_cache(
+    l2_cache l2_cache(
         .clk_in(clk_100mhz),
         .rst_in(sys_rst),
         .addr(addr),

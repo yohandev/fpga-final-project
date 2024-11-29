@@ -126,7 +126,7 @@ def is_runner():
     proj_path = Path(__file__).resolve().parent.parent
     sys.path.append(str(proj_path / "sim" / "model"))
     print(proj_path)
-    sources = [proj_path / "hdl" / "l1_cache.sv"]
+    sources = [proj_path / "hdl" / "l2_cache.sv"]
     includes = [proj_path / "hdl"]
     build_test_args = ["-Wall"]
     parameters = {
@@ -138,7 +138,7 @@ def is_runner():
     runner.build(
         sources=sources,
         includes=includes,
-        hdl_toplevel="l1_cache",
+        hdl_toplevel="l2_cache",
         always=True,
         build_args=build_test_args,
         parameters=parameters,
@@ -148,8 +148,8 @@ def is_runner():
     )
     run_test_args = []
     runner.test(
-        hdl_toplevel="l1_cache",
-        test_module="test_l1_cache",
+        hdl_toplevel="l2_cache",
+        test_module="test_l2_cache",
         test_args=run_test_args,
         waves=True
     )
