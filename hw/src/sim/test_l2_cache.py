@@ -6,17 +6,20 @@ import numpy as np
 from pathlib import Path
 from cocotb.clock import Clock
 from cocotb.binary import BinaryValue, BinaryRepresentation
-from cocotb.triggers import Timer, ClockCycles, RisingEdge, FallingEdge, ReadOnly,with_timeout
+from cocotb.triggers import ClockCycles, RisingEdge
 from cocotb.utils import get_sim_time as gst
 from cocotb.runner import get_runner
+from random import randint
 
 
 CACHE_SIZE = 16
 PORTS = 4
 
+l3 = {}
+
 
 def twos_complement(n):
-    return BinaryValue(n, 7, False, BinaryRepresentation.TWOS_COMPLEMENT).binstr
+    return BinaryValue(n, 7, False, BinaryRepresentation.TWOS_COMPLEMENT).binstr.rjust(7, "0")
 
 def reverse_bits(n):
     if isinstance(n, BinaryValue):
@@ -38,37 +41,77 @@ async def reset(rst, clk):
     await ClockCycles(clk, 3)
 
 
-async def query_cache(dut, ports):
-    """Query the caches
+async def mock_l3_cache(dut):
+    dut.l3_valid.value = 0
+    dut.l3_out.value = 0
 
-    Args:
-        ports (list[int, tuple[int, int, int]]): List of (ports, xyz)
+    while True:
+        await RisingEdge(dut.clk_in)
+        if not dut.l3_read_enable.value:
+            continue
+        
+        # Start query
+        z = dut.l3_addr.value[0:6].signed_integer
+        y = dut.l3_addr.value[7:13].signed_integer
+        x = dut.l3_addr.value[14:20].signed_integer
 
-    Returns:
-        list[int]: The returned blocks per port, in the order given
-    """
-    val = dut.addr.value
-    
-    for (port, (x, y, z)) in ports:
-        off = (PORTS - port - 1) * 21
+        # Make-up some random value
+        if (x, y, z) not in l3:
+            l3[(x, y, z)] = randint(0, 31)
 
-        val[off+0:off+6]   = twos_complement(z)
-        val[off+7:off+13]  = twos_complement(y)
-        val[off+14:off+20] = twos_complement(x)
+        await ClockCycles(dut.clk_in, randint(3, 100))
 
-    dut.addr.value = val
+        dut.l3_out.value = l3[(x, y, z)]
+        dut.l3_valid.value = 1
+        await ClockCycles(dut.clk_in, 1)
+        dut.l3_valid.value = 0
 
-    await ClockCycles(dut.clk_in, 2)
 
-    out = []
-    for (port, _) in ports:
+async def query_l2_cache(dut, port, addr, expect=None):
+    x, y, z = addr
+    off = (PORTS - port - 1) * 21
+
+    print(f"querying ({x}, {y}, {z})")
+
+    addr = dut.addr.value
+    read_enable = dut.read_enable.value
+
+    addr[off+0:off+6]   = twos_complement(z)
+    addr[off+7:off+13]  = twos_complement(y)
+    addr[off+14:off+20] = twos_complement(x)
+    read_enable[PORTS - port - 1] = 1
+
+    assert z == addr[off+0:off+6].signed_integer
+    assert y == addr[off+7:off+13].signed_integer
+    assert x == addr[off+14:off+20].signed_integer
+
+    dut.addr.value = addr
+    dut.read_enable.value = read_enable
+
+    await ClockCycles(dut.clk_in, 1)
+
+    # Wait for an (eventual) cache-hit
+    for i in range(10_000):
+        await ClockCycles(dut.clk_in, 1)
+        
+        # Cache-hit!
         if dut.valid.value & (1 << port):
-            out.append((dut.out.value >> (5 * port)) & 0b11111)
-        else:
-            # Cache miss!
-            out.append(None)
+            out = (dut.out.value >> (5 * port)) & 0b11111
+            
+            # Reset read flag
+            read_enable = dut.read_enable.value
+            read_enable[PORTS - port - 1] = 0
+            dut.read_enable.value = read_enable
+
+            # Did it read correctly?
+            assert out == l3[(x, y, z)]
+
+            # Did the hit/miss behaviour happen?
+            if expect:
+                assert expect == ("instant" if i < 3 else "miss")
+            return
     
-    return out
+    raise "L2 cache timeout!"
 
 
 @cocotb.test()
@@ -76,47 +119,48 @@ async def test_a(dut):
     """cocotb test for image_sprite"""
     dut._log.info("Starting...")
     cocotb.start_soon(Clock(dut.clk_in, 10, units="ns").start())
+    cocotb.start_soon(mock_l3_cache(dut))
 
     dut.addr.value = 0
+    dut.read_enable.value = 0
 
     await reset(dut.rst_in, dut.clk_in)
 
-    # Test reset marks all entries invalid
+    # == Test reset marks all entries invalid ==
     for i in range(CACHE_SIZE):
-        assert dut.tags.value[i*7:(i+1)*7-1].signed_integer == -64
+        assert dut.occupied.value[i] == 0
 
-    # Test on empty cache
-    # This is exploting the "INVALID" tag to get cache hits
-    assert (await query_cache(dut, [(0, (-64, -64, -64))])) == [0]
-    assert (await query_cache(dut, [(1, (-64, -64, -64))])) == [0]
-    assert (await query_cache(dut, [(1, (0, 4, 62))])) == [None]
-    assert (await query_cache(dut, [(0, (-64, -64, -64)), (1, (-64, -64, -64))])) == [0, 0]
-    assert (await query_cache(dut, [(0, (0, 0, 0)), (1, (-64, -64, -64))])) == [None, 0]
+    # == Test basic serial accesses ==
+    await query_l2_cache(dut, 0, (3, 4, 5), "miss")
+    await query_l2_cache(dut, 0, (62, -45, -62), "miss")
+    await query_l2_cache(dut, 1, (3, 4, 5), "instant")
+    await query_l2_cache(dut, 0, (3, 4, 5), "instant")
+    await query_l2_cache(dut, 1, (0, 22, 61), "miss")
 
-    # Manually put stuff in the cache
-    tags = dut.tags.value
-    entries = dut.entries.value
+    await ClockCycles(dut.clk_in, 10)
+
+    # == Test concurrent accesses ==
+    # They should all miss, but in the FST viewer, they should all
+    # resolve at the same time
+    tasks = []
+    for p in range(PORTS):
+        tasks.append(cocotb.start_soon(query_l2_cache(dut, p, (2, 2, 2), "miss")))
+        
+        # Start them a cycle apart because python race condition
+        await ClockCycles(dut.clk_in, 1)
     
-    tags[0:6]   = twos_complement(-3)
-    tags[7:13]  = twos_complement(42)
-    tags[14:20] = twos_complement(-21)
-    entries[0:4] = 0b11011
+    await tasks[0].join()
+    for task in tasks:
+        # They shoud all resolve at the same time
+        assert task.done()
 
-    dut.tags.value = tags
-    dut.entries.value = entries
-
-    await ClockCycles(dut.clk_in, 3)
-
-    # Test on this new cache with one entry
-    assert (await query_cache(dut, [(0, (-64, -64, -64))])) == [0]
-    assert (await query_cache(dut, [(1, (-21, 42, -3))])) == [0b11011]
-    assert (await query_cache(dut, [(2, (0, 0, 0))])) == [None]
-    assert (await query_cache(dut, [(1, (-21, 42, -3))])) == [0b11011]
-    assert (await query_cache(dut, [(0, (0, 0, 0)), (1, (-21, 42, -3))])) == [None, 0b11011]
-    assert (await query_cache(dut, [(1, (0, 0, 0)), (0, (-21, 42, -3))])) == [None, 0b11011]
-    assert (await query_cache(dut, [(1, (-21, 42, -3)), (0, (-21, 42, -3))])) == [0b11011, 0b11011]
-
-    await ClockCycles(dut.clk_in, 5)
+    # == Stress test ==
+    for _ in range(1000):
+        port = randint(0, PORTS-1)
+        addr = (randint(-64, 63), randint(-64, 63), randint(-64, 63))
+        
+        await query_l2_cache(dut, port, addr)
+        await ClockCycles(dut.clk_in, 10)
 
 
 def is_runner():

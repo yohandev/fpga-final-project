@@ -1,73 +1,93 @@
 `include "types.sv"
 
-// A single-cycle block cache with N ports
-//  - Start simple with cyclic replacement, then experiment with LRU policy (might be overkill)
-//  - Fully associative cache
-//
-// consider direct mapped cache? 
 module l2_cache #(PORTS=4, CACHE_SIZE=16)(
     input wire clk_in,
     input wire rst_in,
 
-    // N-Ports Interface
-    input  BlockPos  [PORTS-1:0] addr,  // Index into the cache
-    output BlockType [PORTS-1:0] out,   // Output from the cache
-    output logic     [PORTS-1:0] valid  // Is the output a cache hit? That is, does the block returned
-                                        // correspond to the position from the last cycle?
+    // N-Ports interface
+    input  BlockPos     [PORTS-1:0] addr,           // Index into the cache
+    input  logic        [PORTS-1:0] read_enable,    // Is this port actually reading anything?
+    output BlockType    [PORTS-1:0] out,            // Output from the cache
+    output logic        [PORTS-1:0] valid,          // Is the output a cache hit?
+
+    // L3 interface for cache misses
+    output BlockPos     l3_addr,                    // Address of the current cache-miss, indexing into L3 cache
+    output logic        l3_read_enable,             // Whether to read L3 or not
+    input  BlockType    l3_out,                     // Output of L3 cache, and input into L2 cache
+    input  logic        l3_valid                    // Whether output of L3 cache is valid
 );
-    // Signed numbers are asymmetric (i.e. -128 to 127, inclusive) so use that to
-    // represent an invalid cache entry
-    parameter [$clog2(`CHUNK_WIDTH)-1:0] TAG_INVALID = $signed(1 << ($clog2(`CHUNK_WIDTH) - 1));
+    // Internal state
+    BlockPos    [CACHE_SIZE-1:0] tags;
+    BlockType   [CACHE_SIZE-1:0] entries;
+    logic       [CACHE_SIZE-1:0] occupied;
 
-    BlockPos [CACHE_SIZE-1:0]   tags;
-    BlockType [CACHE_SIZE-1:0]  entries;
+    logic [$clog2(CACHE_SIZE)-1:0] next_replacement;
 
-    /* === LOOKUP === */
-    logic       [PORTS-1:0][CACHE_SIZE-1:0] lookup_cmp; // "Cache hit?" for each cache entry for each port
-    logic       [PORTS-1:0]                 lookup_hit; // "Cache hit?" for each port
+    // Combinatorial helpers
+    logic [PORTS-1:0][CACHE_SIZE-1:0] lookup;
+    logic [PORTS-1:0]                 misses;
+    
+    for (genvar p = 0; p < PORTS; p++) begin
+        for (genvar e = 0; e < CACHE_SIZE; e++) begin
+            assign lookup[p][e] = occupied[e] && tags[e] == addr[p];
+        end
 
-    BlockType   [PORTS-1:0][CACHE_SIZE-1:0] lookup_tmp; // Data of (or 0) for each cache entry for each port
-    BlockType   [PORTS-1:0]                 lookup_mux; // Data out for each port
+        assign misses[p] = !(|lookup[p]);
+    end
 
-    genvar i, j, k;
-    generate
-        // Compute every port in parallel...
-        for (i = 0; i < PORTS; i++) begin
-            // Compare against each entry in parallel...
-            for (j = 0; j < CACHE_SIZE; j++) begin
-                assign lookup_cmp[i][j] = addr[i] == tags[j];
-                assign lookup_tmp[i][j] = lookup_cmp[i][j] ? entries[j] : BlockType'(0);
+    always_ff @(posedge clk_in) begin
+        if (rst_in) begin
+            // Internal state
+            for (int i = 0; i < CACHE_SIZE; i++) begin
+                tags[i] <= BlockPos'(0);
+                entries[i] <= BlockType'(0);
+                occupied[i] <= 0;
             end
-            // Finally, merge all the lookups:
-            always_comb begin
-                lookup_hit[i] = |lookup_cmp[i];
-                lookup_mux[i] = BlockType'(0);
+            next_replacement <= 0;
+
+            // L3 interface
+            l3_addr <= BlockPos'(0);
+            l3_read_enable <= 0;
+
+            // Outputs
+            for (int i = 0; i < PORTS; i++) begin
+                out[i] <= BlockType'(0);
+                valid <= 0;
             end
-            for (k = 0; k < CACHE_SIZE; k++) begin
-                always_comb begin
-                    lookup_mux[i] |= lookup_tmp[i][k];
+        end else begin
+            // For every port...
+            for (int p = 0; p < PORTS; p++) begin
+                valid[p] <= read_enable[p] && !misses[p];
+
+                if (read_enable[p]) begin
+                    // ...look-up every entry
+                    for (int e = 0; e < CACHE_SIZE; e++) begin
+                        // Cache-hit!
+                        if (occupied[e] && tags[e] == addr[p]) begin
+                            out[p] <= entries[e];
+                        end
+                    end
+
+                    // Cache-miss: static priority arbitration, last assigned gets resolved first
+                    if (misses[p]) begin
+                        l3_addr <= addr[p];
+                        l3_read_enable <= 1;
+                    end
                 end
             end
 
-            always_ff @(posedge clk_in) begin
-                valid[i] <= lookup_hit[i];
-                out[i] <= lookup_mux[i];
-            end
-        end
-    endgenerate
+            // Resolve a cache-miss, if possible
+            if (l3_valid && l3_read_enable) begin
+                // Note:
+                // This implementation wastes one cycle when a cache-miss is resolved, e.g. if there is
+                // a pending cache-miss, read_enable will go low for one cycle and then serve that, instead
+                // of keeping read_enable high and just changing l3_addr.
+                tags[next_replacement] <= l3_addr;
+                entries[next_replacement] <= l3_out;
+                occupied[next_replacement] <= 1;
 
-    /* === RESET === */
-    always_ff @(posedge clk_in) begin
-        if (rst_in) begin
-            for (int i = 0; i < CACHE_SIZE; i++) begin
-                // Reset cache
-                tags[i] <= {TAG_INVALID, TAG_INVALID, TAG_INVALID};
-                entries[i] <= BLOCK_AIR;
-            end
-            for (int i = 0; i < PORTS; i++) begin
-                // Reset outputs
-                out[i] <= BLOCK_AIR;
-                valid[i] <= 0;
+                next_replacement <= (next_replacement == CACHE_SIZE-1) ? 0 : (next_replacement + 1);
+                l3_read_enable <= 0;
             end
         end
     end
