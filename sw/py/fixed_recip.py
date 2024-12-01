@@ -30,15 +30,22 @@ def fixed_recip_lte1(fx):
     iter1 = (iter0 << 1) - fixed_mul(fx, fixed_mul(iter0, iter0))
 
     # Third iteration (Newton)
-    iter2 = (iter1 << 1) - fixed_mul(fx, fixed_mul(iter1, iter1))
+    # iter2 = (iter1 << 1) - fixed_mul(fx, fixed_mul(iter1, iter1))
 
-    return iter2
+    return iter1
 
 def err(f):
     actual = 1 / f
     predicted = f32(fixed_recip_lte1(fixed(f)))
     
     return abs(actual - predicted) / abs(actual)
+
+# Generate SystemVerilog LUT
+for (i, val) in reversed(list(enumerate(LUT))):
+    if i == 0:
+        print(f"default: lut = 32'sh{hex(LUT[0])[2:]};")
+    else:
+        print(f"6'd{i}: lut = 32'sh{hex(LUT[i])[2:]};")
 
 x = np.arange(-1, 1, 0.000001)
 y = [100 * err(i) for i in x]

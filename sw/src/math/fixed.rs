@@ -55,9 +55,9 @@ impl Fixed {
         // Second and third iterations (Newton's method)
         // x(n+1) = x(n) * (1.5 - (0.5 * val * x(n)^2))
         let iter1 = iter0 * (fixed!(1.5) - (Fixed(self.0 >> 1) * (iter0 * iter0)));
-        let iter2 = iter1 * (fixed!(1.5) - (Fixed(self.0 >> 1) * (iter1 * iter1)));
+        // let iter2 = iter1 * (fixed!(1.5) - (Fixed(self.0 >> 1) * (iter1 * iter1)));
 
-        iter2
+        iter1
     }
 
     /// Reciprocal for 0 < value <= 1, as would be implemented in hardware

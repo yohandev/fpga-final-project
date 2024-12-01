@@ -45,8 +45,8 @@ def err(f):
 
 # Generate SystemVerilog LUT
 for i in range(1, 31):
-    print(f"32'sb?{'0' * i}1{'?' * (30-i)}: iter0 = 32'sh{hex(lut(i))[2:]};")
-print(f"default: iter0 = 32'sh{hex(lut(31))[2:]};")
+    print(f"32'sb?{'0' * i}1{'?' * (30-i)}: lut = 32'sh{hex(lut(i))[2:]};")
+print(f"default: lut = 32'sh{hex(lut(31))[2:]};")
 
 # Generate error plot
 x = np.arange(0.001, 60000, 0.1)

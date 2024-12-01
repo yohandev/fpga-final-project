@@ -30,15 +30,17 @@ module top_level(
     // Testing fixed's synthesis with BS input/outputs so it doesn't get optimized out
     fixed f_expr;
     fixed f_inv_sqrt;
+    fixed f_recip;
 
-    assign led = {f_expr | f_inv_sqrt[16:0]};
+    assign led = {f_expr | f_recip[24:8]};
 
     fixed_testbench ftest(
         .clk_in(clk_100mhz),
         .a({sw, btn[3], sw} & {btn[1], btn[2], sw}),
         .b({sw, btn[3], sw} | {btn[1], btn[2], sw}),
         .expr(f_expr),
-        .inv_sqrt(f_inv_sqrt)
+        .inv_sqrt(f_inv_sqrt),
+        .recip(f_recip)
     );
 endmodule
 

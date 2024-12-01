@@ -43,6 +43,19 @@ def fixed_inv_sqrt(fx):
 
     return iter1
 
+def fixed_recip_lte1(fx):
+    def lut(i):
+        return fixed(1 / f32(i << (D - 6))) if i != 0 else fixed(1)
+    
+    # First iteration (LUT)
+    idx = (abs(fx) >> (D - 6)) & 63 # index into LUT is 6 MSB of fractional part
+    iter0 = lut(idx) * (1 if fx > 0 else -1)
+    
+    # Second iteration (Newton)
+    iter1 = (iter0 << 1) - fixed_mul(fx, fixed_mul(iter0, iter0))
+
+    return iter1
+
 def twos_complement(n):
     return BinaryValue(n, 32, False, BinaryRepresentation.TWOS_COMPLEMENT).integer
 
@@ -94,6 +107,9 @@ async def test_expr(dut):
     
     print("Testing inverse square root...")
     await generic_test(dut, lambda ab: fixed_inv_sqrt(ab[0]), lambda d: d.inv_sqrt, positive=True, delay=4)
+
+    print("Testing reciprocal...")
+    await generic_test(dut, lambda ab: fixed_recip_lte1(ab[0]), lambda d: d.recip, delay=3)
 
 
 def is_runner():
