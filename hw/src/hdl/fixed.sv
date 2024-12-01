@@ -8,9 +8,20 @@ typedef struct packed {
 // Number of bits in the decimal portion of fixed numbers
 parameter D = 15;
 
-`define fadd(a, b) fixed'(signed'(a) + signed'(b))
-`define fsub(a, b) fixed'(signed'(a) - signed'(b))
-`define fmul(a, b) fixed'(32'((64'(signed'(a)) * 64'(signed'(b))) >>> D))
+// Fixed point addition
+function automatic fixed fadd(input fixed a, input fixed b);
+    fadd = fixed'(signed'(a) + signed'(b));
+endfunction
+
+// Fixed point subtraction
+function automatic fixed fsub(input fixed a, input fixed b);
+    fsub = fixed'(signed'(a) - signed'(b));
+endfunction
+
+// Fixed point multiplication
+function automatic fixed fmul(input fixed a, input fixed b);
+    fmul = fixed'(32'((64'(signed'(a)) * 64'(signed'(b))) >>> D));
+endfunction
 
 `define FIXED_1 fixed'(32'sh8000)
 `define FIXED_1_5 fixed'(32'shC000)
@@ -75,16 +86,16 @@ module fixed_inv_sqrt(
         in_pipe0 <= in;
 
         // Newton's method, first iteration (first intermediate)
-        iter1_pipe0 <= `fmul(iter0, iter0);
+        iter1_pipe0 <= fmul(iter0, iter0);
         iter0_pipe0 <= iter0;
         in_pipe1 <= in_pipe0;
 
         // Neton's method, first iteration (second intermediate)
         iter0_pipe1 <= iter0_pipe0;
-        iter1_pipe1 <= `fmul(fixed'(in_pipe1 >> 1), iter1_pipe0);
+        iter1_pipe1 <= fmul(fixed'(in_pipe1 >> 1), iter1_pipe0);
 
         // Newton's method, second iteration (done)
-        iter1 <= `fmul(iter0_pipe1, `fsub(`FIXED_1_5, iter1_pipe1));
+        iter1 <= fmul(iter0_pipe1, fsub(`FIXED_1_5, iter1_pipe1));
     end
 endmodule
 
@@ -184,12 +195,12 @@ module fixed_recip_lte1(
         in_pipe0 <= in;
 
         // Newton's method (first intermediate)
-        iter1_pipe1 <= `fmul(iter0, iter0);
+        iter1_pipe1 <= fmul(iter0, iter0);
         iter0_pipe0 <= iter0;
         in_pipe1 <= in_pipe0;
 
         // Newton's method (second intermediate)
-        iter1 <= (iter0_pipe0 <<< 1) - `fmul(in_pipe1, iter1_pipe1);
+        iter1 <= (iter0_pipe0 <<< 1) - fmul(in_pipe1, iter1_pipe1);
     end
 endmodule
 
@@ -218,10 +229,10 @@ module fixed_testbench(
     );
 
     always_ff @(posedge clk_in) begin
-        add <= `fadd(a, b);
-        sub <= `fsub(a, b);
-        mul <= `fmul(a, b);
-        expr <= `fmul(`fadd(`fmul(a, b), `fsub(b, a)), `fsub(a, b));
+        add <= fadd(a, b);
+        sub <= fsub(a, b);
+        mul <= fmul(a, b);
+        expr <= fmul(fadd(fmul(a, b), fsub(b, a)), fsub(a, b));
     end
 endmodule
 
