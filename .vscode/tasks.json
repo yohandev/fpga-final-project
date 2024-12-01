@@ -55,7 +55,7 @@
         {
             "label": "Build with lab-bc",
             "type": "shell",
-            "command": "lab-bc run ./src",
+            "command": "lab-bc run ./src ./obj",
             "problemMatcher": [],
 			"options": {
 				"cwd": "./hw"

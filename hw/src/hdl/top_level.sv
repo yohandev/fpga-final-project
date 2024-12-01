@@ -26,21 +26,36 @@ module top_level(
 
     logic sys_rst = btn[0];
 
-    BlockPos [3:0] addr;
-    BlockType [3:0] out;
-    logic     [3:0] valid;
+    BlockPos    [3:0] addr;
+    logic       [3:0] read_enable;
+
+    BlockType   [3:0] out;
+    logic       [3:0] valid;
+
+    BlockPos     l3_addr;
+    logic        l3_read_enable;
+    BlockType    l3_out;
+    logic        l3_valid;
 
     // For now, use the switches as "inputs" to the cache so it
     // doesn't get optimized out. Ditto for outputs
-    assign addr = {sw, sw, sw, sw, sw, sw};
-    // assign led = {valid, out};
-    
+    assign addr = {btn[1], btn[2], btn[3], sw, sw, sw, sw, sw, sw};
+    assign read_enable = {btn[3], btn[1], btn[2], btn[3]};
+    assign l3_out = BlockType'(sw);
+    assign l3_valid = {btn[1]};
+    assign led = {valid, out} | {l3_read_enable, l3_addr};
+
     l2_cache l2_cache(
         .clk_in(clk_100mhz),
         .rst_in(sys_rst),
         .addr(addr),
+        .read_enable(read_enable),
         .out(out),
-        .valid(valid)
+        .valid(valid),
+        .l3_addr(l3_addr),
+        .l3_read_enable(l3_read_enable),
+        .l3_out(l3_out),
+        .l3_valid(l3_valid)
     );
 endmodule
 
