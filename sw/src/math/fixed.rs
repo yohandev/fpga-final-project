@@ -76,11 +76,10 @@ impl Fixed {
 
         // Second and third iterations (Newton's method)
         // x(n+1) = 2*x(n) - val * x(n)^2
-        // iter1 = (iter0 << 1) - fixed_mul(fx, fixed_mul(iter0, iter0))
         let iter1 = Fixed(iter0.0 << 1) - (self * (iter0 * iter0));
-        let iter2 = Fixed(iter1.0 << 1) - (self * (iter1 * iter1));
+        // let iter2 = Fixed(iter1.0 << 1) - (self * (iter1 * iter1));
 
-        iter2
+        iter1
     }
 }
 

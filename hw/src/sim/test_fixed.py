@@ -39,15 +39,15 @@ def fixed_inv_sqrt(fx):
     iter1 = fixed_mul(iter0, fixed(1.5) - fixed_mul(fx >> 1, fixed_mul(iter0, iter0)))
 
     # Third iteration (Newton)
-    iter2 = fixed_mul(iter1, fixed(1.5) - fixed_mul(fx >> 1, fixed_mul(iter1, iter1)))
+    # iter2 = fixed_mul(iter1, fixed(1.5) - fixed_mul(fx >> 1, fixed_mul(iter1, iter1)))
 
-    return iter2
+    return iter1
 
 def twos_complement(n):
     return BinaryValue(n, 32, False, BinaryRepresentation.TWOS_COMPLEMENT).integer
 
 
-async def generic_test(dut, op, output, *, positive=False):
+async def generic_test(dut, op, output, *, positive=False, delay=1):
     for _ in range(1000):
         await FallingEdge(dut.clk_in)
         
@@ -67,7 +67,12 @@ async def generic_test(dut, op, output, *, positive=False):
         dut.a.value = twos_complement(a)
         dut.b.value = twos_complement(b)
 
+        # Test pipelining by changing the inputs (throutput = 1 for every arithmetic op)
         await ClockCycles(dut.clk_in, 1, rising=False)
+        dut.a.value = 0
+        dut.b.value = 0
+
+        await ClockCycles(dut.clk_in, delay - 1, rising=False)
 
         assert out == output(dut).value.signed_integer
 
@@ -88,7 +93,7 @@ async def test_expr(dut):
     await generic_test(dut, lambda ab: fixed_mul((fixed_mul(ab[0], ab[1]) + (ab[1] - ab[0])), (ab[0] - ab[1])), lambda d: d.mul)
     
     print("Testing inverse square root...")
-    await generic_test(dut, lambda ab: fixed_inv_sqrt(ab[0]), lambda d: d.inv_sqrt, positive=True)
+    await generic_test(dut, lambda ab: fixed_inv_sqrt(ab[0]), lambda d: d.inv_sqrt, positive=True, delay=4)
 
 
 def is_runner():

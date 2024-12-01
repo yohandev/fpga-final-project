@@ -1,6 +1,7 @@
 `default_nettype none
 
 `include "types.sv"
+`include "fixed.sv"
 
 module top_level(
     input wire clk_100mhz,
@@ -26,36 +27,18 @@ module top_level(
 
     logic sys_rst = btn[0];
 
-    BlockPos    [3:0] addr;
-    logic       [3:0] read_enable;
+    // Testing fixed's synthesis with BS input/outputs so it doesn't get optimized out
+    fixed f_expr;
+    fixed f_inv_sqrt;
 
-    BlockType   [3:0] out;
-    logic       [3:0] valid;
+    assign led = {f_expr | f_inv_sqrt[16:0]};
 
-    BlockPos     l3_addr;
-    logic        l3_read_enable;
-    BlockType    l3_out;
-    logic        l3_valid;
-
-    // For now, use the switches as "inputs" to the cache so it
-    // doesn't get optimized out. Ditto for outputs
-    assign addr = {btn[1], btn[2], btn[3], sw, sw, sw, sw, sw, sw};
-    assign read_enable = {btn[3], btn[1], btn[2], btn[3]};
-    assign l3_out = BlockType'(sw);
-    assign l3_valid = {btn[1]};
-    assign led = {valid, out} | {l3_read_enable, l3_addr};
-
-    l2_cache l2_cache(
+    fixed_testbench ftest(
         .clk_in(clk_100mhz),
-        .rst_in(sys_rst),
-        .addr(addr),
-        .read_enable(read_enable),
-        .out(out),
-        .valid(valid),
-        .l3_addr(l3_addr),
-        .l3_read_enable(l3_read_enable),
-        .l3_out(l3_out),
-        .l3_valid(l3_valid)
+        .a({sw, btn[3], sw} & {btn[1], btn[2], sw}),
+        .b({sw, btn[3], sw} | {btn[1], btn[2], sw}),
+        .expr(f_expr),
+        .inv_sqrt(f_inv_sqrt)
     );
 endmodule
 
