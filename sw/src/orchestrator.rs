@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{block::Block, cache::{L2Cache, L3Cache}, fixed, math::{Fixed, Rgb565, Vec3}, top_level::{NUM_L2_ENTRIES, NUM_VTU}, vtu::VoxelTraversalUnit};
+use crate::{block::Block, cache::{l2_benchmark_reset, l2_cache_hit_ratio, l2_cache_total_accesses, L2Cache, L3Cache}, fixed, math::{Fixed, Rgb565, Vec3}, top_level::{NUM_L2_ENTRIES, NUM_VTU}, vtu::VoxelTraversalUnit};
 
 #[derive(Debug)]
 pub struct Orchestrator {
@@ -167,6 +167,9 @@ impl Orchestrator {
                 vtu.ray_init_in = true;
                 vtu.current_pixel = 0;
             }
+
+            println!("This frame had {} accesses with {}% hit-ratio", l2_cache_total_accesses(), l2_cache_hit_ratio() * 100.0);
+            l2_benchmark_reset();
 
             // TODO: this will probably require more cycles
             return;

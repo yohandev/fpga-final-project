@@ -2,7 +2,7 @@ use std::{cell::RefCell, iter::zip, rc::Rc};
 
 use crate::{block::Block, math::Vec3i};
 
-use super::L3Cache;
+use super::{l2_cache_add_access, l2_cache_add_hit, L3Cache};
 
 /// An L2 cache with `P` ports and `S` entries
 #[derive(Debug)]
@@ -57,6 +57,20 @@ impl<const P: usize, const S: usize> L2Cache<P, S> {
             self.next_replacement = 0;
             return;
         }
+
+        let mut l3 = self.l3.borrow_mut();
+
+        // Replace cache entry with last query from L3, if valid
+        if l3.valid_out {
+            // Make sure there are no duplicates
+            assert!(self.entries.iter().flatten().find(|e| e.key == l3.addr_in).is_none());
+            
+            self.entries[self.next_replacement] = Some(Entry {
+                key: l3.addr_in,
+                value: l3.voxel_out,
+            });
+            self.next_replacement = (self.next_replacement + 1) % S;
+        }
         
         // Respond to each port's query...
         for ((&addr, re), (voxel, valid)) in zip(zip(&self.addr_in, &self.read_enable_in), zip(&mut self.voxel_out, &mut self.valid_out)) {
@@ -65,6 +79,8 @@ impl<const P: usize, const S: usize> L2Cache<P, S> {
                 continue;
             }
 
+            l2_cache_add_access();
+
             // ...by checking every entry
             for entry in self.entries {
                 match entry {
@@ -72,26 +88,19 @@ impl<const P: usize, const S: usize> L2Cache<P, S> {
                     Some(Entry { value, key }) if key == addr => {
                         *valid = true;
                         *voxel = value;
+
+                        l2_cache_add_hit();
+
+                        break;
                     },
                     _ => {}
                 }
             }
         }
 
-        let mut l3 = self.l3.borrow_mut();
-
-        // Replace cache entry with last query from L3, if valid
-        if l3.valid_out {
-            self.entries[self.next_replacement] = Some(Entry {
-                key: l3.addr_in,
-                value: l3.voxel_out,
-            });
-            self.next_replacement = (self.next_replacement + 1) % S;
-        }
-
         // Cache-miss static priority arbitration:
         // Port 0 has priority, then port 1, port 2, etc...
-        match zip(&self.addr_in, &self.valid_out).find(|(_, &valid)| !valid) {
+        match zip(&self.addr_in, zip(&self.valid_out, &self.read_enable_in)).find(|(_, (&valid, &re))| re && !valid) {
             Some((&addr, _)) => {
                 l3.addr_in = addr;
                 l3.read_enable_in = true;
