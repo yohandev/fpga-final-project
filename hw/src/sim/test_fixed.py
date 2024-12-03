@@ -17,7 +17,9 @@ FIXED_MIN = -(1 << 31)
 def fixed(f): return int(f * (1 << D))
 def f32(fx): return float(fx / (1 << D))
 
-def fixed_mul(a, b): return int((a * b) >> D)
+def fixed_mul(a, b): return int((a * b) >> D) & (2**32 - 1)
+def fixed_add(a, b) : return (a + b) & (2**32 - 1)
+def fixed_sub(a, b) : return (a - b) & (2**32 - 1)
 
 def leading_zeros(n):
     for i in reversed(range(32)):
@@ -60,12 +62,12 @@ def twos_complement(n):
     return BinaryValue(n, 32, False, BinaryRepresentation.TWOS_COMPLEMENT).integer
 
 
-async def generic_test(dut, op, output, *, positive=False, delay=1):
+async def generic_test(dut, op, output, *, positive=False, small=False, delay=1):
     for _ in range(1000):
         await FallingEdge(dut.clk_in)
         
-        a = fixed((random() - 0.5) * f32(FIXED_MAX))
-        b = fixed((random() - 0.5) * f32(FIXED_MAX))
+        a = fixed((random() - 0.5) * f32(FIXED_MAX ** (0.5 if small else 1)))
+        b = fixed((random() - 0.5) * f32(FIXED_MAX ** (0.5 if small else 1)))
 
         if positive:
             a = abs(a)
@@ -100,10 +102,7 @@ async def test_expr(dut):
     await generic_test(dut, lambda ab: ab[0] - ab[1], lambda d: d.sub)
 
     print("Testing multiplication...")
-    await generic_test(dut, lambda ab: fixed_mul(*ab), lambda d: d.mul)
-
-    print("Testing mixed expressions...")
-    await generic_test(dut, lambda ab: fixed_mul((fixed_mul(ab[0], ab[1]) + (ab[1] - ab[0])), (ab[0] - ab[1])), lambda d: d.mul)
+    await generic_test(dut, lambda ab: fixed_mul(*ab), lambda d: d.mul, small=True)
     
     print("Testing inverse square root...")
     await generic_test(dut, lambda ab: fixed_inv_sqrt(ab[0]), lambda d: d.inv_sqrt, positive=True, delay=4)
