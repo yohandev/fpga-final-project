@@ -2,6 +2,7 @@
 
 `include "types.sv"
 `include "fixed.sv"
+`include "vec3.sv"
 
 module top_level(
     input wire clk_100mhz,
@@ -28,19 +29,21 @@ module top_level(
     logic sys_rst = btn[0];
 
     // Testing fixed's synthesis with BS input/outputs so it doesn't get optimized out
-    fixed f_expr;
-    fixed f_inv_sqrt;
-    fixed f_recip;
+    vec3 a;
+    vec3 b;
+    vec3 v_norm;
 
-    assign led = {f_expr | f_recip[24:8]};
+    always_ff @(posedge clk_100mhz) begin
+        a <= {sw, sw, sw, btn[3], sw, sw, sw} & {sw, sw, btn[1], sw, btn[2], sw, sw};
+        b <= {sw, sw, sw, btn[3], sw, sw, sw} | {sw, sw, btn[1], sw, btn[2], sw, sw};
+        led <= {v_norm ^ v_norm[95:80]};
+    end
 
-    fixed_testbench ftest(
+    vec3_testbench vtest(
         .clk_in(clk_100mhz),
-        .a({sw, btn[3], sw} & {btn[1], btn[2], sw}),
-        .b({sw, btn[3], sw} | {btn[1], btn[2], sw}),
-        .expr(f_expr),
-        .inv_sqrt(f_inv_sqrt),
-        .recip(f_recip)
+        .a(a),
+        .b(b),
+        .norm(v_norm)
     );
 endmodule
 
