@@ -25,6 +25,7 @@ fn main() {
 #[derive(Debug, Default)]
 struct Model {
     top_level: TopLevel,
+    velocity: Vec3,
 }
 
 fn model(app: &App) -> Model {
@@ -34,6 +35,7 @@ fn model(app: &App) -> Model {
         .resizable(false)
         .view(view)
         .key_pressed(key_pressed)
+        .key_released(key_released)
         .build()
         .unwrap();
 
@@ -45,13 +47,19 @@ fn model(app: &App) -> Model {
 
     Model {
         top_level,
+        ..Default::default()
     }
 }
 
-fn update(_: &App, model: &mut Model, _: Update) {    
+fn update(_: &App, model: &mut Model, update: Update) {    
     // Step "FPGA" loop
     let mut i = 0;
     let start = std::time::Instant::now();
+    
+    let speed = fixed!(8.0);
+    let dt = fixed!(update.since_last.as_secs_f32());
+
+    model.top_level.orchestrator.camera_pos_in += speed * model.velocity * dt;
 
     while !model.top_level.orchestrator.frame_done_out {
         model.top_level.rising_clk_edge();
@@ -68,15 +76,23 @@ fn update(_: &App, model: &mut Model, _: Update) {
 
 fn key_pressed(_: &App, model: &mut Model, key: Key) {
     match key {
-        Key::I => model.top_level.orchestrator.camera_pos_in += Vec3::FORWARD,
-        Key::K => model.top_level.orchestrator.camera_pos_in -= Vec3::FORWARD,
-        Key::L => model.top_level.orchestrator.camera_pos_in += Vec3::RIGHT,
-        Key::J => model.top_level.orchestrator.camera_pos_in -= Vec3::RIGHT,
-        Key::Space => model.top_level.orchestrator.camera_pos_in += Vec3::UP,
-        Key::M => model.top_level.orchestrator.camera_pos_in -= Vec3::UP,
+        Key::I => model.velocity.z = fixed!(-1.0),
+        Key::K => model.velocity.z = fixed!(1.0),
+        Key::L => model.velocity.x = fixed!(1.0),
+        Key::J => model.velocity.x = fixed!(-1.0),
+        Key::Space => model.velocity.y = fixed!(1.0),
+        Key::M => model.velocity.y = fixed!(-1.0),
         _ => {}
     }
-    println!("{}", model.top_level.orchestrator.camera_pos_in)
+}
+
+fn key_released(_: &App, model: &mut Model, key: Key) {
+    match key {
+        Key::I | Key::K => model.velocity.z = fixed!(0.0),
+        Key::L | Key::J => model.velocity.x = fixed!(0.0),
+        Key::Space | Key::M => model.velocity.y = fixed!(0.0),
+        _ => {}
+    }
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {
