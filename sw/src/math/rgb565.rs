@@ -38,9 +38,9 @@ impl ops::Mul<Fixed> for Rgb565 {
 
     fn mul(self, rhs: Fixed) -> Self::Output {
         Self::new(
-            (Fixed::from(self.r() as i32) * rhs).floor() as _,
-            (Fixed::from(self.g() as i32) * rhs).floor() as _,
-            (Fixed::from(self.b() as i32) * rhs).floor() as _,
+            (Fixed::from(self.r() as i16) * rhs).floor() as _,
+            (Fixed::from(self.g() as i16) * rhs).floor() as _,
+            (Fixed::from(self.b() as i16) * rhs).floor() as _,
         )
     }
 }

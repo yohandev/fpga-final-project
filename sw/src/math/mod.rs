@@ -1,4 +1,4 @@
-mod fixed;
+pub mod fixed;
 mod vec3;
 mod vec3i;
 mod rgb565;

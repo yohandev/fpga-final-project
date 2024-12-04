@@ -67,14 +67,14 @@ impl Orchestrator {
         let w = self.camera_heading_in.normalized();
         let u = Vec3::UP.cross(w).normalized();
         let v = w.cross(u);
-        
+
         // UV vectors that span the viewport in world coordinates
         let viewport_u = u * Self::VIEWPORT_WIDTH;
         let viewport_v = -v * Self::VIEWPORT_HEIGHT;
 
         // Delta vectors from pixel to pixel
-        let pixel_delta_x = viewport_u * fixed!(1.0 / Self::FRAME_WIDTH as f32);
-        let pixel_delta_y = viewport_v * fixed!(1.0 / Self::FRAME_HEIGHT as f32);
+        let pixel_delta_x = u * fixed!(f32::from(Self::VIEWPORT_WIDTH) / Self::FRAME_WIDTH as f32);
+        let pixel_delta_y = -v * fixed!(f32::from(Self::VIEWPORT_HEIGHT) / Self::FRAME_HEIGHT as f32);
 
         // Upper left pixel
         let viewport_corner = self.camera_pos_in - (w * fixed!(1.0)) - ((viewport_u + viewport_v) * fixed!(0.5));
@@ -82,8 +82,8 @@ impl Orchestrator {
 
         self.vtu[0].ray_origin_in = self.camera_pos_in;
         for (i, px) in self.frame_buffer_out.iter_mut().enumerate() {
-            let x: Fixed = ((i % Self::FRAME_WIDTH) as i32).into();
-            let y: Fixed = ((i / Self::FRAME_WIDTH) as i32).into();
+            let x: Fixed = ((i % Self::FRAME_WIDTH) as i16).into();
+            let y: Fixed = ((i / Self::FRAME_WIDTH) as i16).into();
             
             let pixel = pixel_center + (pixel_delta_x * x) + (pixel_delta_y * y);
             
@@ -101,6 +101,8 @@ impl Orchestrator {
                 _ => *px = apply_light_rgb(98, 168, 98),
             }
         }
+
+        self.frame_done_out = !self.frame_done_out;
     }
 
     pub fn rising_clk_edge(&mut self) {
@@ -153,8 +155,8 @@ impl Orchestrator {
             let viewport_v = -v * Self::VIEWPORT_HEIGHT;
 
             // Delta vectors from pixel to pixel
-            self.pixel_delta_u = viewport_u * fixed!(1.0 / Self::FRAME_WIDTH as f32);
-            self.pixel_delta_v = viewport_v * fixed!(1.0 / Self::FRAME_HEIGHT as f32);
+            self.pixel_delta_u = u * fixed!(f32::from(Self::VIEWPORT_WIDTH) / Self::FRAME_WIDTH as f32);
+            self.pixel_delta_v = -v * fixed!(f32::from(Self::VIEWPORT_HEIGHT) / Self::FRAME_HEIGHT as f32);
 
             // Upper left pixel
             let viewport_corner = self.camera_pos_in - (w * fixed!(1.0)) - ((viewport_u + viewport_v) * fixed!(0.5));
@@ -210,8 +212,8 @@ impl Orchestrator {
 
             self.next_pixel += 1;
 
-            let x = ((self.next_pixel % Self::FRAME_WIDTH) as i32).into();
-            let y = ((self.next_pixel / Self::FRAME_WIDTH) as i32).into();
+            let x = ((self.next_pixel % Self::FRAME_WIDTH) as i16).into();
+            let y = ((self.next_pixel / Self::FRAME_WIDTH) as i16).into();
             let pixel_loc = self.pixel0_loc + (self.pixel_delta_u * x) + (self.pixel_delta_v * y);
 
             vtu.ray_direction_in = pixel_loc - self.camera_pos;

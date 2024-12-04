@@ -24,7 +24,7 @@ impl MockCache {
     pub const SIZE: usize = 128;
 
     pub fn query(&self, idx: Vec3i) -> Option<Block> {
-        const HALF_CHUNK_SIZE: i32 = (MockCache::SIZE as i32) / 2;
+        const HALF_CHUNK_SIZE: i16 = (MockCache::SIZE as i16) / 2;
         
         // Re-center position in chunk
         let x: usize = (idx.x + HALF_CHUNK_SIZE).try_into().ok()?;
