@@ -9,7 +9,7 @@ mod top_level;
 mod orchestrator;
 
 use math::Vec3;
-use nannou::{image::{DynamicImage, ImageBuffer}, prelude::*};
+use nannou::{image::{DynamicImage, ImageBuffer}, prelude::*, winit::dpi::PhysicalPosition};
 use orchestrator::Orchestrator;
 use top_level::TopLevel;
 
@@ -25,6 +25,8 @@ fn main() {
 #[derive(Debug, Default)]
 struct Model {
     top_level: TopLevel,
+    input: (f32, f32, f32),
+    heading: (f32, f32),
     velocity: Vec3,
 }
 
@@ -36,6 +38,7 @@ fn model(app: &App) -> Model {
         .view(view)
         .key_pressed(key_pressed)
         .key_released(key_released)
+        .mouse_wheel(mouse_wheel)
         .build()
         .unwrap();
 
@@ -52,15 +55,22 @@ fn model(app: &App) -> Model {
 }
 
 fn update(_: &App, model: &mut Model, update: Update) {    
+    // First person camera    
+    let speed = fixed!(8.0);
+    let dir = Vec3 {
+        x: fixed!(model.input.0 * model.heading.0.cos() + model.input.2 * model.heading.0.sin()),
+        y: fixed!(model.input.1),
+        z: fixed!(model.input.0 * -model.heading.0.sin() + model.input.2 * model.heading.0.cos()),
+    };
+    let dt = fixed!(update.since_last.as_secs_f32());
+
+    model.velocity = fixed!(0.3) * model.velocity + fixed!(0.7) * dir;
+    model.top_level.orchestrator.camera_pos_in += speed * model.velocity * dt;
+    
     // Step "FPGA" loop
     let mut i = 0;
     let start = std::time::Instant::now();
     
-    let speed = fixed!(8.0);
-    let dt = fixed!(update.since_last.as_secs_f32());
-
-    model.top_level.orchestrator.camera_pos_in += speed * model.velocity * dt;
-
     while !model.top_level.orchestrator.frame_done_out {
         model.top_level.rising_clk_edge();
         i += 1;
@@ -76,23 +86,43 @@ fn update(_: &App, model: &mut Model, update: Update) {
 
 fn key_pressed(_: &App, model: &mut Model, key: Key) {
     match key {
-        Key::I => model.velocity.z = fixed!(-1.0),
-        Key::K => model.velocity.z = fixed!(1.0),
-        Key::L => model.velocity.x = fixed!(1.0),
-        Key::J => model.velocity.x = fixed!(-1.0),
-        Key::Space => model.velocity.y = fixed!(1.0),
-        Key::M => model.velocity.y = fixed!(-1.0),
+        Key::I => model.input.2 = -1.0,
+        Key::K => model.input.2 = 1.0,
+        Key::L => model.input.0 = 1.0,
+        Key::J => model.input.0 = -1.0,
+        Key::Space => model.input.1 = 1.0,
+        Key::M => model.input.1 = -1.0,
         _ => {}
     }
 }
 
 fn key_released(_: &App, model: &mut Model, key: Key) {
     match key {
-        Key::I | Key::K => model.velocity.z = fixed!(0.0),
-        Key::L | Key::J => model.velocity.x = fixed!(0.0),
-        Key::Space | Key::M => model.velocity.y = fixed!(0.0),
+        Key::I | Key::K => model.input.2 = 0.0,
+        Key::L | Key::J => model.input.0 = 0.0,
+        Key::Space | Key::M => model.input.1 = 0.0,
         _ => {}
     }
+}
+
+fn mouse_wheel(_: &App, model: &mut Model, scroll: MouseScrollDelta, _: TouchPhase) {
+    let MouseScrollDelta::PixelDelta(PhysicalPosition { x, y }) = scroll else {
+        return;
+    };
+    
+    model.heading.0 += (x as f32) * 0.005;
+    // model.heading.1 += (y as f32) * 0.005;
+
+    let x = model.heading.0.cos() * model.heading.1.cos();
+    let y = model.heading.1.sin();
+    let z = model.heading.0.sin() * model.heading.1.cos();
+    let m = (x*x + y*y + z*z).sqrt();
+
+    model.top_level.orchestrator.camera_heading_in = Vec3 {
+        x: fixed!(x / m),
+        y: fixed!(y / m),
+        z: fixed!(z / m),
+    };
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {
