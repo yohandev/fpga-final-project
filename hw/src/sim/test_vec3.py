@@ -10,28 +10,29 @@ from random import random
 from math import sqrt
 
 
-D = 15
-FIXED_MAX = (1 << 31) - 1;
-FIXED_MIN = -(1 << 31)
+D = 8
+B = 20
+FIXED_MAX = (1 << (B-1)) - 1;
+FIXED_MIN = -(1 << (B-1))
 
 def fixed(f): return int(f * (1 << D))
 def f32(fx): return float(fx / (1 << D))
 
-def fixed_mul(a, b): return int((a * b) >> D) & (2**32 - 1)
-def fixed_add(a, b) : return (a + b) & (2**32 - 1)
+def fixed_mul(a, b): return int((a * b) >> D) & (2**B - 1)
+def fixed_add(a, b) : return (a + b) & (2**B - 1)
 
 def leading_zeros(n):
-    for i in reversed(range(32)):
+    for i in reversed(range(B)):
         if n & (1 << i):
-            return 31 - i
-    return 32
+            return (B-1) - i
+    return B
 
 def fixed_inv_sqrt(fx):
     def lut(lz):
-        if lz == 31:
+        if lz == B-1:
             return fixed(1 / sqrt(f32(0b1)))
-        elif 0 <= lz <= 30:
-            return fixed(1 / sqrt(f32(0b11 << (30 - lz))))
+        elif 0 <= lz <= B-2:
+            return fixed(1 / sqrt(f32(0b11 << ((B-2) - lz))))
     
     # First iteration (LUT)
     iter0 = lut(leading_zeros(fx) - 1)
@@ -58,7 +59,7 @@ def fixed_recip_lte1(fx):
     return iter1
 
 def twos_complement(n):
-    return BinaryValue(n, 32, False, BinaryRepresentation.TWOS_COMPLEMENT).binstr.zfill(32)
+    return BinaryValue(n, B, False, BinaryRepresentation.TWOS_COMPLEMENT).binstr.zfill(B)
 
 def encode_vec3(v):
     x, y, z = v
@@ -119,7 +120,7 @@ async def test_expr(dut):
     await generic_test(dut, lambda ab: [fixed_mul(a, ab[1][0]) for a in ab[0]], lambda d: d.mul, small=True)
 
     print("Testing normalization...")
-    await generic_test(dut, lambda ab: vec3_normalize(ab[0]), lambda d: d.norm, delay=7)
+    await generic_test(dut, lambda ab: vec3_normalize(ab[0]), lambda d: d.norm, delay=6)
 
 
 def is_runner():

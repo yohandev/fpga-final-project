@@ -3,7 +3,8 @@ import numpy as np
 
 from math import sqrt
 
-D = 15
+D = 8
+B = 20
 
 def fixed(f): return int(f * (1 << D))
 def f32(fx): return float(fx / (1 << D))
@@ -11,16 +12,16 @@ def f32(fx): return float(fx / (1 << D))
 def fixed_mul(a, b): return int((a * b) >> D)
 
 def leading_zeros(n):
-    for i in reversed(range(32)):
+    for i in reversed(range(B)):
         if n & (1 << i):
-            return 31 - i
-    return 32
+            return (B-1) - i
+    return B
 
 def lut(lz):
-    if lz == 31:
+    if lz == (B-1):
         return fixed(1 / sqrt(f32(0b1)))
-    elif 0 <= lz <= 30:
-        return fixed(1 / sqrt(f32(0b11 << (30 - lz))))
+    elif 0 <= lz <= (B-2):
+        return fixed(1 / sqrt(f32(0b11 << ((B-2) - lz))))
 
 def fixed_inv_sqrt(fx):
     # First iteration (LUT)
@@ -30,11 +31,11 @@ def fixed_inv_sqrt(fx):
     iter1 = fixed_mul(iter0, fixed(1.5) - fixed_mul(fx >> 1, fixed_mul(iter0, iter0)))
 
     # Third iteration (Newton)
-    iter2 = fixed_mul(iter1, fixed(1.5) - fixed_mul(fx >> 1, fixed_mul(iter1, iter1)))
+    # iter2 = fixed_mul(iter1, fixed(1.5) - fixed_mul(fx >> 1, fixed_mul(iter1, iter1)))
 
-    iter3 = fixed_mul(iter2, fixed(1.5) - fixed_mul(fx >> 1, fixed_mul(iter2, iter2)))
+    # iter3 = fixed_mul(iter2, fixed(1.5) - fixed_mul(fx >> 1, fixed_mul(iter2, iter2)))
 
-    return iter2
+    return iter1
 
 def err(f):
     actual = 1 / sqrt(f)
@@ -44,12 +45,12 @@ def err(f):
 
 
 # Generate SystemVerilog LUT
-for i in range(1, 31):
-    print(f"32'sb?{'0' * i}1{'?' * (30-i)}: lut = 32'sh{hex(lut(i))[2:]};")
-print(f"default: lut = 32'sh{hex(lut(31))[2:]};")
+for i in range(1, B-1):
+    print(f"{B}'sb?{'0' * i}1{'?' * ((B-2)-i)}: lut = {B}'sh{hex(lut(i))[2:]};")
+print(f"default: lut = {B}'sh{hex(lut(B-1))[2:]};")
 
 # Generate error plot
-x = np.arange(0.001, 60000, 0.1)
+x = np.arange(0.01, 200, 0.01)
 y = [100 * err(i) for i in x]
 
 fig, ax = plt.subplots()

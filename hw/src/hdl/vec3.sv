@@ -40,8 +40,15 @@ function automatic vec3 vmul(
     vmul.z = fmul(v.z, s);
 endfunction
 
+function automatic fixed vdot(
+    input vec3 a,
+    input vec3 b
+);
+    vdot = fadd(fmul(a.x, b.x), fadd(fmul(a.y, b.y), fmul(a.z, b.z)));
+endfunction
+
 // Pipelined vector normalize
-// Delay = 7 cycles
+// Delay = 6 cycles
 // Throughput = 1 cycle
 module vec3_normalize(
     input wire clk_in,
@@ -49,26 +56,29 @@ module vec3_normalize(
     input vec3 in,
     output vec3 out
 );
-    // Magnitudes squared
-    fixed mx2, my2, mz2, m2;
-
-    // Fixed inverse square root takes 4 cycles + 2 cycle for magnitude squared
-    fixed inv_sqrt;
-    vec3 in_piped;
-    assign in_piped = `pipe(vec3, in, 6);
-
     fixed_inv_sqrt fixed_inv_sqrt(
         .clk_in(clk_in),
-        .in(m2),
-        .out(inv_sqrt)
+        .in(magnitude_sqr),
+        .out(magnitude_inv)
     );
 
+    // Pipe inputs once and use right away, then pipe 4 more times for inv_sqrt's delay
+    vec3 in_pipe0;
+    vec3 in_pipe4;
+    assign in_pipe4 = `pipe(vec3, in_pipe0, 4);
+    fixed magnitude_inv;
+    fixed magnitude_sqr;
+
+    assign magnitude_sqr = vdot(in_pipe0, in_pipe0);
+
     always_ff @(posedge clk_in) begin
-        mx2 <= fmul(in.x, in.x);
-        my2 <= fmul(in.y, in.y);
-        mz2 <= fmul(in.z, in.z);
-        m2 <= fadd(mx2, fadd(my2, mz2));
-        out <= vmul(in_piped, inv_sqrt);
+        // Cycle #1: Pipe inputs
+        in_pipe0 <= in;
+
+        // Cycle #2-5: (calculate magnitude)
+
+        // Cycle #6: Scale vector
+        out <= vmul(in_pipe4, magnitude_inv);
     end
 
 endmodule

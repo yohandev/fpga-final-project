@@ -31,20 +31,32 @@ module top_level(
     // Testing fixed's synthesis with BS input/outputs so it doesn't get optimized out
     vec3 a;
     vec3 b;
-    vec3 v_norm;
+    vec3 c;
+
+    vec3 c_pipe;
+
+    vec3_normalize normalize(
+        .clk_in(clk_100mhz),
+        .in(a),
+        .out(c)
+    );
 
     always_ff @(posedge clk_100mhz) begin
         a <= {sw, sw, sw, btn[3], sw, sw, sw} & {sw, sw, btn[1], sw, btn[2], sw, sw};
         b <= {sw, sw, sw, btn[3], sw, sw, sw} | {sw, sw, btn[1], sw, btn[2], sw, sw};
-        led <= {v_norm ^ v_norm[95:80]};
+        
+        c_pipe <= vdot(a, b);
+        led <= {c_pipe ^ c_pipe[19:15] + c_pipe[59:40]};
+
+        // c <= fmul(a, b);
     end
 
-    vec3_testbench vtest(
-        .clk_in(clk_100mhz),
-        .a(a),
-        .b(b),
-        .norm(v_norm)
-    );
+    // vec3_testbench vtest(
+    //     .clk_in(clk_100mhz),
+    //     .a(a),
+    //     .b(b),
+    //     .norm(v_norm)
+    // );
 endmodule
 
 `default_nettype wire

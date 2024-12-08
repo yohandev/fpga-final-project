@@ -1,12 +1,14 @@
 `ifndef FIXED_SV
 `define FIXED_SV
 
-typedef struct packed {
-    logic signed [31:0] inner;
-} fixed;
-
+// Number of bits total in fixed numbers
+parameter B = 20;
 // Number of bits in the decimal portion of fixed numbers
-parameter D = 15;
+parameter D = 8;
+
+typedef struct packed {
+    logic signed [B-1:0] inner;
+} fixed;
 
 // Fixed point addition
 function automatic fixed fadd(input fixed a, input fixed b);
@@ -20,11 +22,11 @@ endfunction
 
 // Fixed point multiplication
 function automatic fixed fmul(input fixed a, input fixed b);
-    fmul = fixed'(32'((64'(signed'(a)) * 64'(signed'(b))) >>> D));
+    fmul = fixed'(B'(((B*2)'(signed'(a)) * (B*2)'(signed'(b))) >>> D));
 endfunction
 
-`define FIXED_1 fixed'(32'sh8000)
-`define FIXED_1_5 fixed'(32'shC000)
+`define FIXED_1 fixed'(32'sh100)
+`define FIXED_1_5 fixed'(32'sh180)
 
 // Pipelined fast inverse square root.
 // Delay = 4 cycles
@@ -36,66 +38,51 @@ module fixed_inv_sqrt(
     output fixed out
 );
     fixed lut;
-
     always_comb begin
-        // Generated with fixed_inv_sqrt.py [D=15]
-        unique casez (in)
-            32'sb?01?????????????????????????????: lut = 32'sh93;
-            32'sb?001????????????????????????????: lut = 32'shd1;
-            32'sb?0001???????????????????????????: lut = 32'sh127;
-            32'sb?00001??????????????????????????: lut = 32'sh1a2;
-            32'sb?000001?????????????????????????: lut = 32'sh24f;
-            32'sb?0000001????????????????????????: lut = 32'sh344;
-            32'sb?00000001???????????????????????: lut = 32'sh49e;
-            32'sb?000000001??????????????????????: lut = 32'sh688;
-            32'sb?0000000001?????????????????????: lut = 32'sh93c;
-            32'sb?00000000001????????????????????: lut = 32'shd10;
-            32'sb?000000000001???????????????????: lut = 32'sh1279;
-            32'sb?0000000000001??????????????????: lut = 32'sh1a20;
-            32'sb?00000000000001?????????????????: lut = 32'sh24f3;
-            32'sb?000000000000001????????????????: lut = 32'sh3441;
-            32'sb?0000000000000001???????????????: lut = 32'sh49e6;
-            32'sb?00000000000000001??????????????: lut = 32'sh6882;
-            32'sb?000000000000000001?????????????: lut = 32'sh93cd;
-            32'sb?0000000000000000001????????????: lut = 32'shd105;
-            32'sb?00000000000000000001???????????: lut = 32'sh1279a;
-            32'sb?000000000000000000001??????????: lut = 32'sh1a20b;
-            32'sb?0000000000000000000001?????????: lut = 32'sh24f34;
-            32'sb?00000000000000000000001????????: lut = 32'sh34417;
-            32'sb?000000000000000000000001???????: lut = 32'sh49e69;
-            32'sb?0000000000000000000000001??????: lut = 32'sh6882f;
-            32'sb?00000000000000000000000001?????: lut = 32'sh93cd3;
-            32'sb?000000000000000000000000001????: lut = 32'shd105e;
-            32'sb?0000000000000000000000000001???: lut = 32'sh1279a7;
-            32'sb?00000000000000000000000000001??: lut = 32'sh1a20bd;
-            32'sb?000000000000000000000000000001?: lut = 32'sh24f34e;
-            32'sb?0000000000000000000000000000001: lut = 32'sh34417a;
-            default: lut = 32'sh5a8279;
+        // Generated with fixed_inv_sqrt.py [D=8]
+        unique casez (in_pipe[0])
+            20'sb?01?????????????????: lut = 20'sh6;
+            20'sb?001????????????????: lut = 20'sh9;
+            20'sb?0001???????????????: lut = 20'shd;
+            20'sb?00001??????????????: lut = 20'sh12;
+            20'sb?000001?????????????: lut = 20'sh1a;
+            20'sb?0000001????????????: lut = 20'sh24;
+            20'sb?00000001???????????: lut = 20'sh34;
+            20'sb?000000001??????????: lut = 20'sh49;
+            20'sb?0000000001?????????: lut = 20'sh68;
+            20'sb?00000000001????????: lut = 20'sh93;
+            20'sb?000000000001???????: lut = 20'shd1;
+            20'sb?0000000000001??????: lut = 20'sh127;
+            20'sb?00000000000001?????: lut = 20'sh1a2;
+            20'sb?000000000000001????: lut = 20'sh24f;
+            20'sb?0000000000000001???: lut = 20'sh344;
+            20'sb?00000000000000001??: lut = 20'sh49e;
+            20'sb?000000000000000001?: lut = 20'sh688;
+            20'sb?0000000000000000001: lut = 20'sh93c;
+            default: lut = 20'sh1000;
         endcase
     end
 
-    fixed in_pipe0, in_pipe1;
-    fixed iter0, iter0_pipe0, iter0_pipe1;
-    fixed iter1, iter1_pipe0, iter1_pipe1;
+    fixed [2:0] in_pipe;
+    fixed [1:0] iter0;
+    fixed [1:0] iter1;
 
-    assign out = iter1;
+    assign out = iter1[1];
 
     always_ff @(posedge clk_in) begin
-        // Look-up table
-        iter0 <= lut;
-        in_pipe0 <= in;
+        // Cycle #1: Pipe input
+        in_pipe[0] <= in;
 
-        // Newton's method, first iteration (first intermediate)
-        iter1_pipe0 <= fmul(iter0, iter0);
-        iter0_pipe0 <= iter0;
-        in_pipe1 <= in_pipe0;
+        // Cycle #2: LUT
+        in_pipe[1] <= in_pipe[0];
+        iter0[0] <= lut;
 
-        // Neton's method, first iteration (second intermediate)
-        iter0_pipe1 <= iter0_pipe0;
-        iter1_pipe1 <= fmul(fixed'(in_pipe1 >> 1), iter1_pipe0);
+        // Cycle #3: Newton's method (intermediate)
+        iter1[0] <= fmul(fmul(iter0[0], iter0[0]), fixed'(in_pipe[1] >>> 1));
+        iter0[1] <= iter0[0];
 
-        // Newton's method, second iteration (done)
-        iter1 <= fmul(iter0_pipe1, fsub(`FIXED_1_5, iter1_pipe1));
+        // Cycle #4: Newton's method (done)
+        iter1[1] <= fmul(iter0[1], fsub(`FIXED_1_5, iter1[0]));
     end
 endmodule
 
@@ -108,99 +95,99 @@ module fixed_recip_lte1(
     input fixed in,
     output fixed out
 );
-    fixed lut;
+    // LUT*2 and LUT*LUT are pre-computed
+    fixed lut_dbl;
+    fixed lut_sqr;
     fixed idx;
-
     always_comb begin
-        idx = in[31] ? (-in) : (in);
+        idx = in_pipe[0][B-1] ? (-in_pipe[0]) : (in_pipe[0]);
 
-        // Generated with fixed_recip.py [D=15]
+        // Generated with fixed_recip.py [D=8]
         unique case (idx[D-1:D-6])
-            6'd63: lut = 32'sh8208;
-            6'd62: lut = 32'sh8421;
-            6'd61: lut = 32'sh864b;
-            6'd60: lut = 32'sh8888;
-            6'd59: lut = 32'sh8ad8;
-            6'd58: lut = 32'sh8d3d;
-            6'd57: lut = 32'sh8fb8;
-            6'd56: lut = 32'sh9249;
-            6'd55: lut = 32'sh94f2;
-            6'd54: lut = 32'sh97b4;
-            6'd53: lut = 32'sh9a90;
-            6'd52: lut = 32'sh9d89;
-            6'd51: lut = 32'sha0a0;
-            6'd50: lut = 32'sha3d7;
-            6'd49: lut = 32'sha72f;
-            6'd48: lut = 32'shaaaa;
-            6'd47: lut = 32'shae4c;
-            6'd46: lut = 32'shb216;
-            6'd45: lut = 32'shb60b;
-            6'd44: lut = 32'shba2e;
-            6'd43: lut = 32'shbe82;
-            6'd42: lut = 32'shc30c;
-            6'd41: lut = 32'shc7ce;
-            6'd40: lut = 32'shcccc;
-            6'd39: lut = 32'shd20d;
-            6'd38: lut = 32'shd794;
-            6'd37: lut = 32'shdd67;
-            6'd36: lut = 32'she38e;
-            6'd35: lut = 32'shea0e;
-            6'd34: lut = 32'shf0f0;
-            6'd33: lut = 32'shf83e;
-            6'd32: lut = 32'sh10000;
-            6'd31: lut = 32'sh10842;
-            6'd30: lut = 32'sh11111;
-            6'd29: lut = 32'sh11a7b;
-            6'd28: lut = 32'sh12492;
-            6'd27: lut = 32'sh12f68;
-            6'd26: lut = 32'sh13b13;
-            6'd25: lut = 32'sh147ae;
-            6'd24: lut = 32'sh15555;
-            6'd23: lut = 32'sh1642c;
-            6'd22: lut = 32'sh1745d;
-            6'd21: lut = 32'sh18618;
-            6'd20: lut = 32'sh19999;
-            6'd19: lut = 32'sh1af28;
-            6'd18: lut = 32'sh1c71c;
-            6'd17: lut = 32'sh1e1e1;
-            6'd16: lut = 32'sh20000;
-            6'd15: lut = 32'sh22222;
-            6'd14: lut = 32'sh24924;
-            6'd13: lut = 32'sh27627;
-            6'd12: lut = 32'sh2aaaa;
-            6'd11: lut = 32'sh2e8ba;
-            6'd10: lut = 32'sh33333;
-            6'd9: lut = 32'sh38e38;
-            6'd8: lut = 32'sh40000;
-            6'd7: lut = 32'sh49249;
-            6'd6: lut = 32'sh55555;
-            6'd5: lut = 32'sh66666;
-            6'd4: lut = 32'sh80000;
-            6'd3: lut = 32'shaaaaa;
-            6'd2: lut = 32'sh100000;
-            6'd1: lut = 32'sh200000;
-            default: lut = 32'sh8000;
+            6'd63: begin lut_dbl = 20'sh208; lut_sqr = 20'sh108; end
+            6'd62: begin lut_dbl = 20'sh210; lut_sqr = 20'sh110; end
+            6'd61: begin lut_dbl = 20'sh219; lut_sqr = 20'sh119; end
+            6'd60: begin lut_dbl = 20'sh222; lut_sqr = 20'sh123; end
+            6'd59: begin lut_dbl = 20'sh22b; lut_sqr = 20'sh12d; end
+            6'd58: begin lut_dbl = 20'sh234; lut_sqr = 20'sh137; end
+            6'd57: begin lut_dbl = 20'sh23e; lut_sqr = 20'sh142; end
+            6'd56: begin lut_dbl = 20'sh249; lut_sqr = 20'sh14e; end
+            6'd55: begin lut_dbl = 20'sh253; lut_sqr = 20'sh15a; end
+            6'd54: begin lut_dbl = 20'sh25e; lut_sqr = 20'sh167; end
+            6'd53: begin lut_dbl = 20'sh26a; lut_sqr = 20'sh175; end
+            6'd52: begin lut_dbl = 20'sh276; lut_sqr = 20'sh183; end
+            6'd51: begin lut_dbl = 20'sh282; lut_sqr = 20'sh193; end
+            6'd50: begin lut_dbl = 20'sh28f; lut_sqr = 20'sh1a3; end
+            6'd49: begin lut_dbl = 20'sh29c; lut_sqr = 20'sh1b4; end
+            6'd48: begin lut_dbl = 20'sh2aa; lut_sqr = 20'sh1c7; end
+            6'd47: begin lut_dbl = 20'sh2b9; lut_sqr = 20'sh1da; end
+            6'd46: begin lut_dbl = 20'sh2c8; lut_sqr = 20'sh1ef; end
+            6'd45: begin lut_dbl = 20'sh2d8; lut_sqr = 20'sh205; end
+            6'd44: begin lut_dbl = 20'sh2e8; lut_sqr = 20'sh21d; end
+            6'd43: begin lut_dbl = 20'sh2fa; lut_sqr = 20'sh237; end
+            6'd42: begin lut_dbl = 20'sh30c; lut_sqr = 20'sh252; end
+            6'd41: begin lut_dbl = 20'sh31f; lut_sqr = 20'sh26f; end
+            6'd40: begin lut_dbl = 20'sh333; lut_sqr = 20'sh28f; end
+            6'd39: begin lut_dbl = 20'sh348; lut_sqr = 20'sh2b1; end
+            6'd38: begin lut_dbl = 20'sh35e; lut_sqr = 20'sh2d6; end
+            6'd37: begin lut_dbl = 20'sh375; lut_sqr = 20'sh2fd; end
+            6'd36: begin lut_dbl = 20'sh38e; lut_sqr = 20'sh329; end
+            6'd35: begin lut_dbl = 20'sh3a8; lut_sqr = 20'sh357; end
+            6'd34: begin lut_dbl = 20'sh3c3; lut_sqr = 20'sh38b; end
+            6'd33: begin lut_dbl = 20'sh3e0; lut_sqr = 20'sh3c2; end
+            6'd32: begin lut_dbl = 20'sh400; lut_sqr = 20'sh400; end
+            6'd31: begin lut_dbl = 20'sh421; lut_sqr = 20'sh443; end
+            6'd30: begin lut_dbl = 20'sh444; lut_sqr = 20'sh48d; end
+            6'd29: begin lut_dbl = 20'sh469; lut_sqr = 20'sh4de; end
+            6'd28: begin lut_dbl = 20'sh492; lut_sqr = 20'sh539; end
+            6'd27: begin lut_dbl = 20'sh4bd; lut_sqr = 20'sh59e; end
+            6'd26: begin lut_dbl = 20'sh4ec; lut_sqr = 20'sh60f; end
+            6'd25: begin lut_dbl = 20'sh51e; lut_sqr = 20'sh68d; end
+            6'd24: begin lut_dbl = 20'sh555; lut_sqr = 20'sh71c; end
+            6'd23: begin lut_dbl = 20'sh590; lut_sqr = 20'sh7be; end
+            6'd22: begin lut_dbl = 20'sh5d1; lut_sqr = 20'sh876; end
+            6'd21: begin lut_dbl = 20'sh618; lut_sqr = 20'sh949; end
+            6'd20: begin lut_dbl = 20'sh666; lut_sqr = 20'sha3d; end
+            6'd19: begin lut_dbl = 20'sh6bc; lut_sqr = 20'shb58; end
+            6'd18: begin lut_dbl = 20'sh71c; lut_sqr = 20'shca4; end
+            6'd17: begin lut_dbl = 20'sh787; lut_sqr = 20'she2c; end
+            6'd16: begin lut_dbl = 20'sh800; lut_sqr = 20'sh1000; end
+            6'd15: begin lut_dbl = 20'sh888; lut_sqr = 20'sh1234; end
+            6'd14: begin lut_dbl = 20'sh924; lut_sqr = 20'sh14e5; end
+            6'd13: begin lut_dbl = 20'sh9d8; lut_sqr = 20'sh183c; end
+            6'd12: begin lut_dbl = 20'shaaa; lut_sqr = 20'sh1c71; end
+            6'd11: begin lut_dbl = 20'shba2; lut_sqr = 20'sh21d9; end
+            6'd10: begin lut_dbl = 20'shccc; lut_sqr = 20'sh28f5; end
+            6'd9: begin lut_dbl = 20'she38; lut_sqr = 20'sh3291; end
+            6'd8: begin lut_dbl = 20'sh1000; lut_sqr = 20'sh4000; end
+            6'd7: begin lut_dbl = 20'sh1249; lut_sqr = 20'sh5397; end
+            6'd6: begin lut_dbl = 20'sh1555; lut_sqr = 20'sh71c7; end
+            6'd5: begin lut_dbl = 20'sh1999; lut_sqr = 20'sha3d7; end
+            6'd4: begin lut_dbl = 20'sh2000; lut_sqr = 20'sh10000; end
+            6'd3: begin lut_dbl = 20'sh2aaa; lut_sqr = 20'sh1c71c; end
+            6'd2: begin lut_dbl = 20'sh4000; lut_sqr = 20'sh40000; end
+            6'd1: begin lut_dbl = 20'sh8000; lut_sqr = 20'shFFFFF; end
+            default: begin lut_dbl = 20'sh100; lut_sqr = 20'sh100; end
         endcase
     end
 
-    fixed in_pipe0, in_pipe1;
-    fixed iter0, iter0_pipe0;
-    fixed iter1, iter1_pipe1;
+    fixed [1:0] in_pipe;
+    fixed iter0_sqr, iter0_dbl;
+    fixed iter1;
 
     assign out = iter1;
 
     always_ff @(posedge clk_in) begin
-        // Look-up table
-        iter0 <= in[31] ? (-lut) : (lut);
-        in_pipe0 <= in;
+        // Cycle #1: Pipe inputs (trim bits above 1.0 for better routing)
+        in_pipe[0] <= in; // fixed'(signed'(in[D:0]));
 
-        // Newton's method (first intermediate)
-        iter1_pipe1 <= fmul(iter0, iter0);
-        iter0_pipe0 <= iter0;
-        in_pipe1 <= in_pipe0;
+        // Cycle #2: LUT
+        iter0_sqr <= lut_sqr;
+        iter0_dbl <= in[B-1] ? (-lut_dbl) : (lut_dbl);
+        in_pipe[1] <= in_pipe[0];
 
-        // Newton's method (second intermediate)
-        iter1 <= (iter0_pipe0 <<< 1) - fmul(in_pipe1, iter1_pipe1);
+        // Cycle #3: Newton's method
+        iter1 <= fsub(iter0_dbl, fmul(in_pipe[1], iter0_sqr));
     end
 endmodule
 
