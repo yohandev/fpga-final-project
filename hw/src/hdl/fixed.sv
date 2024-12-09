@@ -22,11 +22,12 @@ endfunction
 
 // Fixed point multiplication
 function automatic fixed fmul(input fixed a, input fixed b);
-    fmul = fixed'(B'(((B*2)'(signed'(a)) * (B*2)'(signed'(b))) >>> D));
+    fmul = fixed'(B'(($signed((B*2)'(a)) * $signed((B*2)'(b))) >>> D));
 endfunction
 
-`define FIXED_1 fixed'(32'sh100)
-`define FIXED_1_5 fixed'(32'sh180)
+`define FIXED_1 fixed'(20'sh100)
+`define FIXED_1_5 fixed'(20'sh180)
+`define FIXED_MAX fixed'(20'sh7FFFF)
 
 // Pipelined fast inverse square root.
 // Delay = 4 cycles
@@ -166,7 +167,7 @@ module fixed_recip_lte1(
             6'd4: begin lut_dbl = 20'sh2000; lut_sqr = 20'sh10000; end
             6'd3: begin lut_dbl = 20'sh2aaa; lut_sqr = 20'sh1c71c; end
             6'd2: begin lut_dbl = 20'sh4000; lut_sqr = 20'sh40000; end
-            6'd1: begin lut_dbl = 20'sh8000; lut_sqr = 20'shFFFFF; end
+            6'd1: begin lut_dbl = 20'sh8000; lut_sqr = 20'sh7FFFF; end
             default: begin lut_dbl = 20'sh100; lut_sqr = 20'sh100; end
         endcase
     end
