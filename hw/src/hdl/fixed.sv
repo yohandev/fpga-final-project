@@ -25,8 +25,9 @@ function automatic fixed fmul(input fixed a, input fixed b);
     fmul = fixed'(B'(((B*2)'(signed'(a)) * (B*2)'(signed'(b))) >>> D));
 endfunction
 
-`define FIXED_1 fixed'(32'sh100)
-`define FIXED_1_5 fixed'(32'sh180)
+`define FIXED_1 fixed'(20'sh100)
+`define FIXED_1_5 fixed'(20'sh180)
+`define FIXED_MAX fixed'(20'shFFFFF)
 
 // Pipelined fast inverse square root.
 // Delay = 4 cycles

@@ -56,6 +56,9 @@ module vec3_normalize(
     input vec3 in,
     output vec3 out
 );
+    fixed magnitude_inv;
+    fixed magnitude_sqr;
+    
     fixed_inv_sqrt fixed_inv_sqrt(
         .clk_in(clk_in),
         .in(magnitude_sqr),
@@ -66,8 +69,6 @@ module vec3_normalize(
     vec3 in_pipe0;
     vec3 in_pipe4;
     assign in_pipe4 = `pipe(vec3, in_pipe0, 4);
-    fixed magnitude_inv;
-    fixed magnitude_sqr;
 
     assign magnitude_sqr = vdot(in_pipe0, in_pipe0);
 
