@@ -9,7 +9,7 @@ from cocotb.runner import get_runner
 from random import random
 
 async def generic_test(dut, op, output, *, positive=False, small=False, lte1=False, delay=1):
-    for _ in range(1000):
+    for i in range(1000):
         await FallingEdge(dut.clk_in)
         
         if lte1:
@@ -23,10 +23,15 @@ async def generic_test(dut, op, output, *, positive=False, small=False, lte1=Fal
             a = abs(a)
             b = abs(b)
 
+        # 0 can be an edge case in a lot of cases, make sure we consider it
+        if i == 0:
+            a = 0
+            b = 0
+
         out = op((a, b))
 
         # Ignore overflows
-        if not (fixed.MIN <= out <= fixed.MAX):
+        if not lte1 or not (fixed.MIN <= out <= fixed.MAX):
             continue
 
         dut.a.value = fixed.encode(a)
@@ -39,7 +44,7 @@ async def generic_test(dut, op, output, *, positive=False, small=False, lte1=Fal
 
         await ClockCycles(dut.clk_in, delay - 1, rising=False)
 
-        assert out == output(dut).value.signed_integer
+        assert fixed.encode_str(out) == output(dut).value.binstr
 
 @cocotb.test()
 async def test_expr(dut):

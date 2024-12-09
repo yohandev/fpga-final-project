@@ -22,7 +22,7 @@ endfunction
 
 // Fixed point multiplication
 function automatic fixed fmul(input fixed a, input fixed b);
-    fmul = fixed'(B'(((B*2)'(signed'(a)) * (B*2)'(signed'(b))) >>> D));
+    fmul = fixed'(B'(($signed((B*2)'(a)) * $signed((B*2)'(b))) >>> D));
 endfunction
 
 `define FIXED_1 fixed'(20'sh100)

@@ -13,13 +13,14 @@ def f32(fx): return float(fx / (1 << D))
 
 def encode_str(f):
     """Encode with two's complement"""
-    return BinaryValue(f, B, False, BinaryRepresentation.TWOS_COMPLEMENT).binstr.zfill(B)
+    # Bit masking magically does two's complement for us instead of "-0b1101" or garbage like that
+    return bin(f & (2**B - 1))[2:].zfill(B)
 
 def encode(f):
     """Encode with two's complement"""
     return BinaryValue(encode_str(f))
 
-def mul(a, b): return int((a * b) >> D) & (2**B - 1)
+def mul(a, b): return ((a * b) >> D) & (2**B - 1)
 def add(a, b) : return (a + b) & (2**B - 1)
 def sub(a, b) : return (a - b) & (2**B - 1)
 
@@ -40,7 +41,7 @@ def inv_sqrt(fx):
     iter0 = lut(leading_zeros(fx) - 1)
     
     # Second iteration (Newton)
-    iter1 = mul(iter0, fixed(1.5) - mul(fx >> 1, mul(iter0, iter0)))
+    iter1 = mul(iter0, sub(fixed(1.5), mul(fx >> 1, mul(iter0, iter0))))
 
     return iter1
 
@@ -56,7 +57,7 @@ def recip_lte1(fx):
     # First iteration (LUT)
     idx = (abs(fx) >> (D - 6)) & 63 # index into LUT is 6 MSB of fractional part
 
-    iter0_dbl = lut_dbl(idx) * (1 if fx > 0 else -1)
+    iter0_dbl = (lut_dbl(idx) * (1 if fx > 0 else -1)) & (2**B - 1)
     iter0_sqr = lut_sqr(idx)
     
     # Second iteration (Newton)
