@@ -15,10 +15,6 @@ async def generic_test(dut, op, output, *, positive=False, small=False, lte1=Fal
         if lte1:
             a = fixed.fixed(random() - 0.5) * 2
             b = fixed.fixed(random() - 0.5) * 2
-
-            # Special case for recip, behavior is weird around 0
-            if abs(fixed.f32(a)) < 0.03:
-                continue
         else:
             a = fixed.fixed((random() - 0.5) * fixed.f32(fixed.MAX ** (0.5 if small else 1)))
             b = fixed.fixed((random() - 0.5) * fixed.f32(fixed.MAX ** (0.5 if small else 1)))

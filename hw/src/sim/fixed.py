@@ -4,7 +4,7 @@ from math import sqrt
 
 D = 8
 B = 20
-MAX = (1 << (B-1)) - 1;
+MAX = (1 << (B-1)) - 1
 MIN = -(1 << (B-1))
 
 
@@ -50,7 +50,7 @@ def recip_lte1(fx):
     def lut_sqr(i):
         if i == 1:
             # I modified this one manually b/c it overflowed
-            return 0xFFFFF
+            return 0x7FFFF
         return fixed((1 / f32(i << (D - 6))) ** 2) if i != 0 else fixed(1)
     
     # First iteration (LUT)
