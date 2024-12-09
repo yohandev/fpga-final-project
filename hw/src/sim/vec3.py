@@ -1,5 +1,6 @@
 from cocotb.binary import BinaryValue
 import fixed
+import random as r
 
 
 def encode_str(v):
@@ -23,7 +24,7 @@ def from_f32(v):
     return tuple(fixed.fixed(vi) for vi in v)
 
 def into_f32(v):
-    return tuple(fixed.f32(vi for vi in v))
+    return tuple(fixed.f32(vi) for vi in v)
 
 def add(a, b):
     return tuple(fixed.add(ai, bi) for (ai, bi) in zip(a, b))
@@ -49,3 +50,10 @@ def normalize(v):
 def floor(v):
     """Returns a vec3i"""
     return tuple((vi >> fixed.D) & (2**(fixed.B - fixed.D) - 1) for vi in v)
+
+def random(small=False):
+    return (
+        fixed.fixed((r.random() - 0.5) * 2 * fixed.f32(fixed.MAX) ** (0.4 if small else 1)),
+        fixed.fixed((r.random() - 0.5) * 2 * fixed.f32(fixed.MAX) ** (0.4 if small else 1)),
+        fixed.fixed((r.random() - 0.5) * 2 * fixed.f32(fixed.MAX) ** (0.4 if small else 1)),
+    )

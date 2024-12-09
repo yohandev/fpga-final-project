@@ -45,7 +45,7 @@ def err(f):
 
 
 # Generate SystemVerilog LUT
-for i in range(1, B-1):
+for i in range(B-1):
     print(f"{B}'sb?{'0' * i}1{'?' * ((B-2)-i)}: lut = {B}'sh{hex(lut(i))[2:]};")
 print(f"default: lut = {B}'sh{hex(lut(B-1))[2:]};")
 

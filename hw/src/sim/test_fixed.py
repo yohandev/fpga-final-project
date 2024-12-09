@@ -8,31 +8,31 @@ from cocotb.triggers import ClockCycles, FallingEdge
 from cocotb.runner import get_runner
 from random import random
 
-async def generic_test(dut, op, output, *, positive=False, small=False, lte1=False, delay=1):
+async def generic_test(dut, op, output, *, nonzero=False, positive=False, delay=1):
+    skipped = 0
     for i in range(1000):
         await FallingEdge(dut.clk_in)
         
-        if lte1:
-            a = fixed.fixed(random() - 0.5) * 2
-            b = fixed.fixed(random() - 0.5) * 2
-        else:
-            a = fixed.fixed((random() - 0.5) * fixed.f32(fixed.MAX ** (0.5 if small else 1)))
-            b = fixed.fixed((random() - 0.5) * fixed.f32(fixed.MAX ** (0.5 if small else 1)))
+        a = fixed.fixed((random() - 0.5) * 2 * fixed.f32(fixed.MAX))
+        b = fixed.fixed((random() - 0.5) * 2 * fixed.f32(fixed.MAX))
 
-        if positive:
-            a = abs(a)
-            b = abs(b)
-
-        # 0 can be an edge case in a lot of cases, make sure we consider it
+        # Some known edge cases during debugging, make sure we consider them
         if i == 0:
             a = 0
             b = 0
+        elif i == 1:
+            a = 285
+            b = 1038592
+
+        if positive:
+            a = fixed.abs(a)
+            b = fixed.abs(b)
+        
+        if nonzero and (a == 0 or b == 0):
+            skipped += 1
+            continue
 
         out = op((a, b))
-
-        # Ignore overflows
-        if not lte1 or not (fixed.MIN <= out <= fixed.MAX):
-            continue
 
         dut.a.value = fixed.encode(a)
         dut.b.value = fixed.encode(b)
@@ -45,6 +45,8 @@ async def generic_test(dut, op, output, *, positive=False, small=False, lte1=Fal
         await ClockCycles(dut.clk_in, delay - 1, rising=False)
 
         assert fixed.encode_str(out) == output(dut).value.binstr
+    
+    print(f"Skipped {skipped} tests")
 
 @cocotb.test()
 async def test_expr(dut):
@@ -57,13 +59,13 @@ async def test_expr(dut):
     await generic_test(dut, lambda ab: fixed.sub(*ab), lambda d: d.sub)
 
     print("Testing multiplication...")
-    await generic_test(dut, lambda ab: fixed.mul(*ab), lambda d: d.mul, small=True)
+    await generic_test(dut, lambda ab: fixed.mul(*ab), lambda d: d.mul)
     
     print("Testing inverse square root...")
     await generic_test(dut, lambda ab: fixed.inv_sqrt(ab[0]), lambda d: d.inv_sqrt, positive=True, delay=4)
 
     print("Testing reciprocal...")
-    await generic_test(dut, lambda ab: fixed.recip_lte1(ab[0]), lambda d: d.recip, delay=3, lte1=True)
+    await generic_test(dut, lambda ab: fixed.recip_lte1(ab[0]), lambda d: d.recip, delay=3, nonzero=True)
 
 
 def is_runner():

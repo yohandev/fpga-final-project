@@ -22,7 +22,13 @@ endfunction
 
 // Fixed point multiplication
 function automatic fixed fmul(input fixed a, input fixed b);
-    fmul = fixed'(B'(($signed((B*2)'(a)) * $signed((B*2)'(b))) >>> D));
+    reg signed [(B*2)-1:0] prod;
+    begin
+        prod = $signed(a) * $signed(b);
+        fmul = prod >>> D;
+    end
+    // fmul = fixed'(B'(($signed((B*2)'($signed(a))) * $signed((B*2)'($signed(b)))) >>> D));
+    // fmul = fixed'(B'((((B*2)'(a)) * ((B*2)'(b))) >>> D));
 endfunction
 
 `define FIXED_1 fixed'(20'sh100)
@@ -42,6 +48,7 @@ module fixed_inv_sqrt(
     always_comb begin
         // Generated with fixed_inv_sqrt.py [D=8]
         unique casez (in_pipe[0])
+            20'sb?1??????????????????: lut = 20'sh4;
             20'sb?01?????????????????: lut = 20'sh6;
             20'sb?001????????????????: lut = 20'sh9;
             20'sb?0001???????????????: lut = 20'shd;
@@ -184,7 +191,7 @@ module fixed_recip_lte1(
 
         // Cycle #2: LUT
         iter0_sqr <= lut_sqr;
-        iter0_dbl <= in[B-1] ? (-lut_dbl) : (lut_dbl);
+        iter0_dbl <= in_pipe[0][B-1] ? (-lut_dbl) : (lut_dbl);
         in_pipe[1] <= in_pipe[0];
 
         // Cycle #3: Newton's method

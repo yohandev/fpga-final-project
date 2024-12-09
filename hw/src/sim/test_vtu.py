@@ -14,6 +14,43 @@ from cocotb.utils import get_sim_time as gst
 from cocotb.runner import get_runner
 
 
+class VoxelTraversal:
+    def __init__(self, ray_direction, ray_origin):
+        # Re-implementation of sw/src/vtu.rs, which is known to work
+        self.ray_direction_in = ray_direction
+        self.ray_origin_in = ray_origin
+        self.ray_direction = vec3.normalize(ray_direction)
+        self.ray_position = vec3.floor(ray_origin)
+
+        o = self.ray_origin_in
+        d = self.ray_direction
+        p = self.ray_position
+
+        self.ray_step = (
+            1 if fixed.f32(self.ray_direction_in[0]) > 0 else -1,
+            1 if fixed.f32(self.ray_direction_in[1]) > 0 else -1,
+            1 if fixed.f32(self.ray_direction_in[2]) > 0 else -1,
+        )
+        self.ray_t_delta = (
+            fixed.abs(fixed.recip_lte1(d[0])),
+            fixed.abs(fixed.recip_lte1(d[1])),
+            fixed.abs(fixed.recip_lte1(d[2])),
+        )
+        self.ray_dist = (
+            fixed.sub(fixed.fixed(1), fixed.add(o[0], p[0] << fixed.D)) \
+                if self.ray_step[0] > 0 else fixed.sub(o[0], p[0] << fixed.D),
+            fixed.sub(fixed.fixed(1), fixed.add(o[1], p[1] << fixed.D)) \
+                if self.ray_step[1] > 0 else fixed.sub(o[1], p[1] << fixed.D),
+            fixed.sub(fixed.fixed(1), fixed.add(o[2], p[2] << fixed.D)) \
+                if self.ray_step[2] > 0 else fixed.sub(o[2], p[2] << fixed.D),
+        )
+        self.ray_t_max = (
+            fixed.mul(self.ray_t_delta[0], self.ray_dist[0]) if d[0] != 0 else fixed.MAX,
+            fixed.mul(self.ray_t_delta[1], self.ray_dist[1]) if d[1] != 0 else fixed.MAX,
+            fixed.mul(self.ray_t_delta[2], self.ray_dist[2]) if d[2] != 0 else fixed.MAX,
+        )
+
+
 async def reset(rst, clk):
     """ Helper function to issue a reset signal to our module """
     rst.value = 1
@@ -23,15 +60,25 @@ async def reset(rst, clk):
 
 
 @cocotb.test()
-async def test_ray_init(dut):
+async def test_ray_init_fuzzy(dut):
+    cocotb.start_soon(Clock(dut.clk_in, 10, units="ns").start())
+
+    # Known edge cases
+    await test_ray_init(dut, vec3.from_f32((10, 2, 0)), vec3.from_f32((20, 10, -3)))
+
+    # Fuzzy testing
+    for _ in range(1000):
+        ray_direction = vec3.random(small=True)
+        ray_origin = vec3.random()
+
+        await test_ray_init(dut, ray_direction, ray_origin)
+        await ClockCycles(dut.clk_in, 3)
+
+
+async def test_ray_init(dut, ray_direction, ray_origin):
     """
     Tests initialization of ray parameters
     """
-    cocotb.start_soon(Clock(dut.clk_in, 10, units="ns").start())
-
-    ray_direction = vec3.from_f32((10, 0, 0))
-    ray_origin = vec3.from_f32((20, 10, -3))
-
     dut.ray_direction.value = vec3.encode(ray_direction)
     dut.ray_origin.value = vec3.encode(ray_origin)
 
@@ -40,46 +87,21 @@ async def test_ray_init(dut):
     assert dut.state.value == 0, "Expected to be in reset state!"
 
     await Edge(dut.state)
-    await ClockCycles(dut.clk_in, 3)
 
     assert dut.state.value == 1, "Expected to be in traversal state!"
 
-    # Re-implementation of sw/src/vtu.rs, which is known to work
-    ray_direction = vec3.normalize(ray_direction)
-    ray_position = vec3.floor(ray_origin)
-    ray_step = (
-        1 if ray_direction[0] > 0 else -1,
-        1 if ray_direction[1] > 0 else -1,
-        1 if ray_direction[2] > 0 else -1,
-    )
-    ray_t_delta = (
-        fixed.abs(fixed.recip_lte1(ray_direction[0])),
-        fixed.abs(fixed.recip_lte1(ray_direction[1])),
-        fixed.abs(fixed.recip_lte1(ray_direction[2])),
-    )
-    ray_dist = (
-        fixed.sub(fixed.fixed(1), fixed.add(ray_origin[0], ray_position[0] << fixed.D)) \
-            if ray_step[0] > 0 else fixed.sub(ray_origin[0], ray_position[0] << fixed.D),
-        fixed.sub(fixed.fixed(1), fixed.add(ray_origin[1], ray_position[1] << fixed.D)) \
-            if ray_step[1] > 0 else fixed.sub(ray_origin[1], ray_position[1] << fixed.D),
-        fixed.sub(fixed.fixed(1), fixed.add(ray_origin[2], ray_position[2] << fixed.D)) \
-            if ray_step[2] > 0 else fixed.sub(ray_origin[2], ray_position[2] << fixed.D),
-    )
-    ray_t_max = (
-        fixed.mul(ray_t_delta[0], ray_dist[0]) if ray_direction[0] != 0 else fixed.MAX,
-        fixed.mul(ray_t_delta[1], ray_dist[1]) if ray_direction[1] != 0 else fixed.MAX,
-        fixed.mul(ray_t_delta[2], ray_dist[2]) if ray_direction[2] != 0 else fixed.MAX,
-    )
+    # Compare against ground truth
+    alg = VoxelTraversal(ray_direction, ray_origin)
 
     # Now just compare stuff
     assert dut.init_timer.value == 13
-    assert dut.ray_ori.value.binstr == vec3.encode_str(ray_origin)
-    assert dut.ray_dir.value.binstr == vec3.encode_str(ray_direction)
-    assert dut.ray_pos.value.binstr == vec3i.encode_str(ray_position)
-    assert dut.ray_step.value.binstr == vec3i.encode_str(ray_step)
-    assert dut.ray_d_dt.value.binstr == vec3.encode_str(ray_t_delta)
-    assert dut.ray_dist.value.binstr == vec3.encode_str(ray_dist)
-    assert dut.ray_t_max.value.binstr == vec3.encode_str(ray_t_max)
+    assert dut.ray_ori.value.binstr == vec3.encode_str(alg.ray_origin_in)
+    assert dut.ray_dir.value.binstr == vec3.encode_str(alg.ray_direction)
+    assert dut.ray_pos.value.binstr == vec3i.encode_str(alg.ray_position)
+    assert dut.ray_step.value.binstr == vec3i.encode_str(alg.ray_step)
+    assert dut.ray_d_dt.value.binstr == vec3.encode_str(alg.ray_t_delta)
+    assert dut.ray_dist.value.binstr == vec3.encode_str(alg.ray_dist)
+    assert dut.ray_t_max.value.binstr == vec3.encode_str(alg.ray_t_max)
 
 
 def is_runner():

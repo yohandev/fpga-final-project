@@ -127,22 +127,22 @@ module VoxelTraversalUnit(
 
             // Cycle #12: Calculate ray_t_max and we're done!
             if (init_timer == 12) begin
-                if (ray_dir.x != 0)
-                    ray_t_max.x <= fmul(ray_d_dt.x, ray_dist.x);
-                else
-                    ray_t_max.x <= `FIXED_MAX;
-                if (ray_dir.y != 0)
-                    ray_t_max.y <= fmul(ray_d_dt.y, ray_dist.y);
-                else
-                    ray_t_max.y <= `FIXED_MAX;
-                if (ray_dir.z != 0)
-                    ray_t_max.z <= fmul(ray_d_dt.z, ray_dist.z);
-                else
-                    ray_t_max.z <= `FIXED_MAX;
+                // if (ray_dir.x != 0)
+                //     ray_t_max.x <= fmul(ray_d_dt.x, ray_dist.x);
+                // else
+                //     ray_t_max.x <= `FIXED_MAX;
+                // if (ray_dir.y != 0)
+                //     ray_t_max.y <= fmul(ray_d_dt.y, ray_dist.y);
+                // else
+                //     ray_t_max.y <= `FIXED_MAX;
+                // if (ray_dir.z != 0)
+                //     ray_t_max.z <= fmul(ray_d_dt.z, ray_dist.z);
+                // else
+                //     ray_t_max.z <= `FIXED_MAX;
 
-                // ray_t_max.x <= ray_dir.x != 0 ? fmul(ray_d_dt.x, ray_dist.x) : `FIXED_MAX;
-                // ray_t_max.y <= ray_dir.y != 0 ? fmul(ray_d_dt.y, ray_dist.y) : `FIXED_MAX;
-                // ray_t_max.z <= ray_dir.z != 0 ? fmul(ray_d_dt.z, ray_dist.z) : `FIXED_MAX;
+                ray_t_max.x <= ray_dir.x != 0 ? fmul(ray_d_dt.x, ray_dist.x) : `FIXED_MAX;
+                ray_t_max.y <= ray_dir.y != 0 ? fmul(ray_d_dt.y, ray_dist.y) : `FIXED_MAX;
+                ray_t_max.z <= ray_dir.z != 0 ? fmul(ray_d_dt.z, ray_dist.z) : `FIXED_MAX;
 
                 state <= TRAVERSING;
             end

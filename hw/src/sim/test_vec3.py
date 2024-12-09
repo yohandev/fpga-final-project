@@ -11,26 +11,14 @@ from cocotb.runner import get_runner
 from random import random
 
 
-async def generic_test(dut, op, output, *, delay=1, small=True):
+async def generic_test(dut, op, output, *, delay=1, small=False):
     for _ in range(1000):
         await FallingEdge(dut.clk_in)
         
-        a = (
-            fixed.fixed((random() - 0.5) * fixed.f32(fixed.MAX ** (0.5 if small else 1))),
-            fixed.fixed((random() - 0.5) * fixed.f32(fixed.MAX ** (0.5 if small else 1))),
-            fixed.fixed((random() - 0.5) * fixed.f32(fixed.MAX ** (0.5 if small else 1))),
-        )
-        b = (
-            fixed.fixed((random() - 0.5) * fixed.f32(fixed.MAX ** (0.5 if small else 1))),
-            fixed.fixed((random() - 0.5) * fixed.f32(fixed.MAX ** (0.5 if small else 1))),
-            fixed.fixed((random() - 0.5) * fixed.f32(fixed.MAX ** (0.5 if small else 1))),
-        )
+        a = vec3.random(small)
+        b = vec3.random(small)
 
         out = op((a, b))
-
-        # Ignore overflows
-        if not all(fixed.MIN <= o <= fixed.MAX for o in out):
-            continue
 
         dut.a.value = vec3.encode(a)
         dut.b.value = vec3.encode(b)
@@ -55,10 +43,10 @@ async def test_expr(dut):
     await generic_test(dut, lambda ab: vec3.sub(*ab), lambda d: d.sub)
 
     print("Testing multiplication...")
-    await generic_test(dut, lambda ab: vec3.mul(ab[0], ab[1][0]), lambda d: d.mul, small=True)
+    await generic_test(dut, lambda ab: vec3.mul(ab[0], ab[1][0]), lambda d: d.mul)
 
     print("Testing normalization...")
-    await generic_test(dut, lambda ab: vec3.normalize(ab[0]), lambda d: d.norm, delay=6)
+    await generic_test(dut, lambda ab: vec3.normalize(ab[0]), lambda d: d.norm, small=True, delay=6)
 
 
 def is_runner():
