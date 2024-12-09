@@ -1,6 +1,10 @@
 mod block;
+// for macOS and Linux
+// use std::{fs::File, os::unix::fs::FileExt};
 
-use std::{fs::File, os::unix::fs::FileExt};
+// for Windows
+use std::fs::File;
+use std::io::{Write, Seek, SeekFrom};
 
 use block::Block;
 use quill::{BlockKind, BlockPosition, Game, Plugin, Position};
@@ -23,6 +27,7 @@ impl Plugin for FpgaPlugin {
         setup.add_system(Self::connect_serial);
         setup.add_system(Self::send_blocks);
         setup.add_system(Self::save_chunk_local);
+        setup.add_system(Self::player_input);
 
         Self {
             serial: None,
@@ -95,15 +100,28 @@ impl FpgaPlugin {
     }
 
     /// Sends blocks to the FPGA
-    /// TODO: (Win Win) change this. see [FpgaPlugin::save_chunk_local] for inspiration
-    fn send_blocks(&mut self, game: &mut Game) {
+    fn send_blocks(&mut self, _game: &mut Game) {
+        // Make sure the serial port is available
         let Some(port) = &mut self.serial else {
+            eprintln!("No serial port connected to send data!");
             return;
         };
+    
+        // Ensure chunk data is available
+        if self.chunk_data.is_empty() {
+            eprintln!("No chunk data available to send!");
+            return;
+        }
+    
+        // Serialize the chunk data into a byte slice
+        let data: &[u8] = unsafe { std::mem::transmute(&*self.chunk_data) };
 
-        for (_, pos) in game.query::<&Position>() {
-            if let Ok(block) = game.block(pos.block()) {
-                port.write(&block.id().to_be_bytes()).unwrap();
+        // Put the byte into a packet containing the valid start and stop signal
+        for byte in data {
+            let packet = [0, *byte, 1];
+            if let Err(e) = port.write_all(&packet) {
+                eprintln!("Failed to send data byte to FPGA: {e}");
+                return;
             }
         }
     }
@@ -149,8 +167,67 @@ impl FpgaPlugin {
         // Save file
         let data = unsafe { std::mem::transmute(&*self.chunk_data) };
 
-        if let Err(e) = self.chunk_file.write_all_at(data, 0) {
+        if let Err(e) = self.chunk_file.write_all(data) {
             eprintln!("Error writing chunk.bin! {e}");
         };
+    }
+
+    // Picks up the player's input signal from FPGA, and telling the server how to update
+    // May need to look over if this works
+    fn player_input(&mut self, game: &mut Game) {
+        // Make sure the serial port is available
+        let Some(port) = &mut self.serial else {
+            eprintln!("No serial port connected to receive input!");
+            return;
+        };
+
+        // Buffer to store the received single-byte signal from FPGA
+        let mut signal = [0u8; 1];
+
+        match port.read_exact(&mut signal) {
+            Ok(_) => {
+                // Decode the signal into a movement command
+                match signal[0] {
+                    0x01 => {
+                        self.update_player_state(game, 0, 0, 1); // Move forward
+                    }
+                    0x02 => {
+                        self.update_player_state(game, 0, 0, -1); // Move backward
+                    }
+                    0x03 => {
+                        self.update_player_state(game, -1, 0, 0); // Move left
+                    }
+                    0x04 => {
+                        self.update_player_state(game, 1, 0, 0); // Move right
+                    }
+                    _ => {
+                        eprintln!("Unknown signal received from FPGA!");
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to receive input from FPGA: {e}");
+        }
+    }
+    }
+
+    fn update_player_state(&mut self, game: &mut Game, dx: i32, dy: i32, dz: i32) {
+        // Find the player
+        if let Some((entity, pos)) = game.query::<&mut Position>().next() {
+            // Update the player's position
+            let new_pos = BlockPosition {
+                x: pos.block().x + dx,
+                y: pos.block().y + dy,
+                z: pos.block().z + dz,
+            };
+    
+            // Trigger the save and send operations
+            self.save_chunk_local(game);
+            self.send_blocks(game);
+    
+            println!("Player moved to new position: {:?}", new_pos);
+        } else {
+            eprintln!("Player not found.");
+        }
     }
 }
