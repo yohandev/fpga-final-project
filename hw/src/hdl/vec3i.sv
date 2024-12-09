@@ -33,9 +33,12 @@ endfunction
 function automatic vec3i vfloor(
     input vec3 v
 );
-    vfloor.x = v.x[B-D-1:D];
-    vfloor.y = v.y[B-D-1:D];
-    vfloor.z = v.z[B-D-1:D];
+    // vfloor.x = v.x[B-D-1:D];
+    // vfloor.y = v.y[B-D-1:D];
+    // vfloor.z = v.z[B-D-1:D];
+    vfloor.x = v.x >>> D;
+    vfloor.y = v.y >>> D;
+    vfloor.z = v.z >>> D;
 endfunction
 
 `endif

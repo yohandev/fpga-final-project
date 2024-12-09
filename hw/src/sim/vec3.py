@@ -10,6 +10,21 @@ def encode(v):
     """Encode with two's complement"""
     return BinaryValue(encode_str(v))
 
+def decode(v):
+    if isinstance(v, BinaryValue):
+        v = v.binstr
+    
+    assert len(v) == fixed.B * 3
+
+    return tuple(int(v[i*fixed.B:(i+1)*fixed.B], base=2) for i in range(3))
+
+
+def from_f32(v):
+    return tuple(fixed.fixed(vi) for vi in v)
+
+def into_f32(v):
+    return tuple(fixed.f32(vi for vi in v))
+
 def add(a, b):
     return tuple(fixed.add(ai, bi) for (ai, bi) in zip(a, b))
 
@@ -30,3 +45,7 @@ def normalize(v):
     m = fixed.inv_sqrt(dot(v, v))
 
     return tuple(fixed.mul(vi, m) for vi in v)
+
+def floor(v):
+    """Returns a vec3i"""
+    return tuple((vi >> fixed.D) & (2**(fixed.B - fixed.D) - 1) for vi in v)

@@ -64,3 +64,9 @@ def recip_lte1(fx):
     iter1 = sub(iter0_dbl, mul(fx, iter0_sqr))
 
     return iter1
+
+def abs(fx):
+    # In hardware I just check the top bit
+    if fx & (1 << (B-1)):
+        return (-fx) & (2**B - 1)
+    return fx
