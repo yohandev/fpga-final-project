@@ -19,7 +19,7 @@ pub use entity::EntityId;
 /// Wrapper type that enforces 64-bit pointers
 /// for all targets. Needed for ABI compatibility
 /// between WASM-compiled and native-compiled plugins.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Zeroable)]
 #[repr(transparent)]
 pub struct Pointer<T> {
     ptr: u64,
@@ -59,13 +59,12 @@ impl<T> From<*const T> for Pointer<T> {
 // SAFETY: Pointer<T> contains a u64 regardless
 // of T. bytemuck won't derive Pod for generic
 // types because it cannot guarantee this.
-unsafe impl<T: 'static> Pod for Pointer<T> {}
-unsafe impl<T: 'static> Zeroable for Pointer<T> {}
+unsafe impl<T: 'static+Zeroable> Pod for Pointer<T> {}
 
 /// Wrapper type that enforces 64-bit pointers
 /// for all targets. Needed for ABI compatibility
 /// between WASM-compiled and native-compiled plugins.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Zeroable)]
 #[repr(transparent)]
 pub struct PointerMut<T> {
     ptr: u64,
@@ -103,5 +102,4 @@ impl<T> From<*mut T> for PointerMut<T> {
 }
 
 // SAFETY: see impl Pod for Pointer.
-unsafe impl<T: 'static> Pod for PointerMut<T> {}
-unsafe impl<T: 'static> Zeroable for PointerMut<T> {}
+unsafe impl<T: 'static+Zeroable> Pod for PointerMut<T> {}

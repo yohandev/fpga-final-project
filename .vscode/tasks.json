@@ -17,7 +17,7 @@
 		},
 		{
 			"type": "process",
-			"command": "${workspaceFolder}/server/feather/target/release/cargo-quill",
+			"command": "${workspaceFolder}/server/feather/target/release/cargo-quill.exe",
 			"args": ["build", "--native", "--release"],
 			"options": {
 				"cwd": "${workspaceFolder}/server/plugin",
@@ -29,18 +29,23 @@
 		},
 		{
 			"type": "shell",
-			"command": "mkdir -p ${workspaceFolder}/server/dummy/plugins && cp ${workspaceFolder}/server/feather/target/release/feather-server ${workspaceFolder}/server/dummy && cp ${workspaceFolder}/server/target/release/fpgacraft-plugin.plugin ${workspaceFolder}/server/dummy/plugins",
+			"command": "mkdir -p ${workspaceFolder}/server/dummy/plugins && cp ${workspaceFolder}/server/feather/target/release/feather-server ${workspaceFolder}/server/dummy && cp ${workspaceFolder}/server/target/release/fpgacraft-plugin ${workspaceFolder}/server/dummy/plugins",
 			"label": "Prepare Dummy Server",
 			"dependsOn": ["Build Server", "Build Plugin"],
-			"hide": true
+			"hide": false
 		},
 		{
 			"type": "process",
-			"command": "${workspaceFolder}/server/dummy/feather-server",
+			"command": "${workspaceFolder}/server/dummy/feather-server.exe",
+			"problemMatcher": [
+				"$rustc"
+			],
+			"args": ["--release"],
 			"options": {
-				"cwd": "${workspaceFolder}/server/dummy"
+				"cwd": "${workspaceFolder}/server/dummy/feather-server.exe"
 			},
 			"label": "Start Server",
+			"hide": false,
 			"dependsOn": ["Prepare Dummy Server"]
 		},
 		{
