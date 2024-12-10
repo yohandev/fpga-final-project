@@ -141,8 +141,6 @@ module top_level(
     // );
 
 
-
-    // Testing fixed's synthesis with BS input/outputs so it doesn't get optimized out
     vec3        ray_origin;
     vec3        ray_direction;
     BlockType   hit;
@@ -155,7 +153,7 @@ module top_level(
 
     VoxelTraversalUnit vtu(
         .clk_in(clk_100mhz),
-        .rst_in(rst_in),
+        .rst_in(sys_rst),
         .ray_origin(ray_origin),
         .ray_direction(ray_direction),
         .hit(hit),
@@ -166,6 +164,16 @@ module top_level(
         .ram_out(ram_out),
         .ram_valid(ram_valid)
     );
+
+    always_ff @(posedge clk_100mhz) begin
+        // Testing fixed's synthesis with BS input/outputs so it doesn't get optimized out
+        ray_origin <= {sw, sw, sw, sw};
+        ray_direction <= {sw, sw, sw, sw};
+        ram_out <= BlockType'(sw);
+        ram_valid <= btn[0];
+
+        led <= hit ^ hit_norm & hit_valid | ram_addr;
+    end
 endmodule
 
 `default_nettype wire
