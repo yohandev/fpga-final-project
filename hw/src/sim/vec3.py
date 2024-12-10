@@ -42,6 +42,14 @@ def dot(a, b):
 
     return fixed.add(x, fixed.add(y, z))
 
+def cross(a, b):
+    # TODO: implement in hardware and test
+    return (
+        fixed.sub(fixed.mul(a[1], b[2]), fixed.mul(a[2], b[1])),
+        fixed.sub(fixed.mul(a[2], b[0]), fixed.mul(a[0], b[2])),
+        fixed.sub(fixed.mul(a[0], b[1]), fixed.mul(a[1], b[0])),
+    )
+
 def normalize(v):
     m = fixed.inv_sqrt(dot(v, v))
 
@@ -57,3 +65,6 @@ def random(small=False):
         fixed.fixed((r.random() - 0.5) * 2 * fixed.f32(fixed.MAX) ** (0.4 if small else 1)),
         fixed.fixed((r.random() - 0.5) * 2 * fixed.f32(fixed.MAX) ** (0.4 if small else 1)),
     )
+
+def negate(v):
+    return tuple(fixed.negate(vi) for vi in v)

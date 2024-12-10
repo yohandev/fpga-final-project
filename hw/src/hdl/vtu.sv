@@ -25,7 +25,8 @@ module VoxelTraversalUnit(
     // This module is implemented as a state machine
     typedef enum bit[1:0] {
         INIT,
-        TRAVERSING
+        TRAVERSING,
+        IDLE
     } State;
 
     // Internal state
@@ -38,6 +39,7 @@ module VoxelTraversalUnit(
     vec3        ray_d_dt;   // Movement along each axis per unit t
     vec3        ray_dist;   // Movement along each axis per unit t
     vec3        ray_t_max;  // Nearest voxel boundary in units of t
+    logic [5:0] num_steps;  // Number of steps traversed so far
 
     vec3 ray_direction_normalized;
     vec3_normalize normalize_ray_dir(
@@ -54,13 +56,16 @@ module VoxelTraversalUnit(
         .out(recip_out)
     );
 
+    assign ram_addr.x = $signed(ray_pos.x);
+    assign ram_addr.y = $signed(ray_pos.y);
+    assign ram_addr.z = $signed(ray_pos.z);
+
     always_ff @(posedge clk_in) if (rst_in) begin
     // Reset:
         hit <= BLOCK_AIR;
         hit_norm <= vec3'(0);
         hit_valid <= 0;
 
-        ram_addr <= BlockPos'(0);
         ram_read_enable <= 0;
 
         recip_in <= fixed'(0);
@@ -72,6 +77,7 @@ module VoxelTraversalUnit(
         ray_step.x <= $signed(ray_direction.x) > 0 ? 1 : -1;
         ray_step.y <= $signed(ray_direction.y) > 0 ? 1 : -1;
         ray_step.z <= $signed(ray_direction.z) > 0 ? 1 : -1;
+        num_steps <= 0;
         
         // Everything else is initialized a few cycles later in INIT state...
         ray_dir <= vec3'(0);
@@ -127,28 +133,63 @@ module VoxelTraversalUnit(
 
             // Cycle #12: Calculate ray_t_max and we're done!
             if (init_timer == 12) begin
-                // if (ray_dir.x != 0)
-                //     ray_t_max.x <= fmul(ray_d_dt.x, ray_dist.x);
-                // else
-                //     ray_t_max.x <= `FIXED_MAX;
-                // if (ray_dir.y != 0)
-                //     ray_t_max.y <= fmul(ray_d_dt.y, ray_dist.y);
-                // else
-                //     ray_t_max.y <= `FIXED_MAX;
-                // if (ray_dir.z != 0)
-                //     ray_t_max.z <= fmul(ray_d_dt.z, ray_dist.z);
-                // else
-                //     ray_t_max.z <= `FIXED_MAX;
-
                 ray_t_max.x <= ray_dir.x != 0 ? fmul(ray_d_dt.x, ray_dist.x) : `FIXED_MAX;
                 ray_t_max.y <= ray_dir.y != 0 ? fmul(ray_d_dt.y, ray_dist.y) : `FIXED_MAX;
                 ray_t_max.z <= ray_dir.z != 0 ? fmul(ray_d_dt.z, ray_dist.z) : `FIXED_MAX;
 
                 state <= TRAVERSING;
+                ram_read_enable <= 1;
             end
         end
         TRAVERSING: begin
-            // TODO
+            // Ray has gone too far
+            if (num_steps > 60) begin
+                // Done traversing!
+                hit <= BLOCK_AIR;
+                hit_norm <= vec3'(0);
+                hit_valid <= 1;
+
+                ram_read_enable <= 0;
+                state <= IDLE;
+            end
+            if (ram_valid) begin
+                // Voxel query came back, so keep traversing
+                if (ram_out != BLOCK_AIR) begin
+                    // Done traversing!
+                    hit <= ram_out;
+                    // TODO: hit_norm <= ???
+                    hit_valid <= 1;
+
+                    ram_read_enable <= 0;
+                    state <= IDLE;
+                end else begin
+                    if ($signed(ray_t_max.x) < $signed(ray_t_max.y)) begin
+                        if ($signed(ray_t_max.x) < $signed(ray_t_max.z)) begin
+                            ray_pos.x <= $signed(ray_pos.x) + $signed(ray_step.x);
+                            ray_t_max.x <= fadd(ray_t_max.x, ray_d_dt.x);
+                            // last_step = Axis::X;
+                        end else begin
+                            ray_pos.z <= $signed(ray_pos.z) + $signed(ray_step.z);
+                            ray_t_max.z <= fadd(ray_t_max.z, ray_d_dt.z);
+                            // last_step = Axis::Z;
+                        end
+                    end else begin
+                        if ($signed(ray_t_max.y) < $signed(ray_t_max.z)) begin
+                            ray_pos.y <= $signed(ray_pos.y) + $signed(ray_step.y);
+                            ray_t_max.y <= fadd(ray_t_max.y, ray_d_dt.y);
+                            // last_step = Axis::Y;
+                        end else begin
+                            ray_pos.z <= $signed(ray_pos.z) + $signed(ray_step.z);
+                            ray_t_max.z <= fadd(ray_t_max.z, ray_d_dt.z);
+                            // last_step = Axis::Z;
+                        end
+                    end
+                    num_steps <= num_steps + 1;
+                end
+            end
+        end
+        IDLE: begin
+            // Nothing to do
         end
     endcase
 

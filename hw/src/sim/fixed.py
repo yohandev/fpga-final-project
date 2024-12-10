@@ -87,5 +87,8 @@ def recip_lte1(fx):
 def abs(fx):
     # In hardware I just check the top bit
     if (fx & MASK) & (1 << (B-1)):
-        return (-fx) & MASK
+        return negate(fx)
     return fx
+
+def negate(fx):
+    return (-A(fx)) & MASK
