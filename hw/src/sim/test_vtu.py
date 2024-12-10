@@ -151,11 +151,13 @@ async def test_mock_render(dut):
     viewport_u = vec3.mul(u, VIEWPORT_WIDTH)
     viewport_v = vec3.mul(vec3.negate(v), VIEWPORT_HEIGHT)
 
-    pixel_delta_x = vec3.mul(u, fixed.fixed(fixed.f32(VIEWPORT_WIDTH) / FRAME_WIDTH))
-    pixel_delta_y = vec3.mul(vec3.negate(v), fixed.fixed(fixed.f32(VIEWPORT_HEIGHT) / FRAME_HEIGHT))
+    pixel_delta_u = vec3.mul(u, fixed.fixed(fixed.f32(VIEWPORT_WIDTH) / FRAME_WIDTH))
+    pixel_delta_v = vec3.mul(vec3.negate(v), fixed.fixed(fixed.f32(VIEWPORT_HEIGHT) / FRAME_HEIGHT))
 
     viewport_corner = vec3.sub(vec3.sub(camera_position, w), vec3.mul(vec3.add(viewport_u, viewport_v), fixed.fixed(0.5)))
-    pixel_center = vec3.add(viewport_corner, vec3.mul(vec3.add(pixel_delta_x, pixel_delta_y), fixed.fixed(0.5)))
+    pixel0_loc = vec3.add(viewport_corner, vec3.mul(vec3.add(pixel_delta_u, pixel_delta_v), fixed.fixed(0.5)))
+
+    sun = vec3.normalize(vec3.from_f32((1, -5, 2)))
 
     dist_traversed = 0
 
@@ -164,17 +166,16 @@ async def test_mock_render(dut):
         x = fixed.fixed(int(i % FRAME_WIDTH))
         y = fixed.fixed(int(i / FRAME_WIDTH))
 
-        if x == 0:
+        if i % FRAME_WIDTH == FRAME_WIDTH - 1:
+            print(f"Rendered row {int(fixed.f32(y)) + 1}/{FRAME_HEIGHT}")
             print(f"    -> Average # steps: {dist_traversed / FRAME_WIDTH}")
-            print(f"Rendering row {int(fixed.f32(y)) + 1}/{FRAME_HEIGHT}")
             dist_traversed = 0
         
-        pixel = vec3.add(pixel_center, vec3.add(vec3.mul(pixel_delta_x, x), vec3.mul(pixel_delta_y, y)))
+        pixel = vec3.add(pixel0_loc, vec3.add(vec3.mul(pixel_delta_u, x), vec3.mul(pixel_delta_v, y)))
         
-        # let light = self.vtu[0].normal_out.dot(Vec3::new(fixed!(1.0), fixed!(-5.0), fixed!(2.0)).normalized());
-        # let light = fixed!(0.4) + fixed!(0.2) * light;
-        # let apply_light = |c| (Fixed::from(c) * light).floor() as u8;
-        # let apply_light_rgb = |r, g, b| Rgb565::new(apply_light(r), apply_light(g), apply_light(b));
+        light = vec3.dot(vec3.decode(dut.hit_norm.value), sun)
+        light = fixed.add(fixed.fixed(0.4), fixed.mul(fixed.fixed(0.2), light))
+        light = fixed.f32(light)
 
         dut.ray_direction.value = vec3.encode(vec3.sub(pixel, camera_position))
         
@@ -192,9 +193,12 @@ async def test_mock_render(dut):
         elif dut.hit.value == blocks.DIRT: col = [133, 96, 77]
         elif dut.hit.value == blocks.OAK_LOG: col = [91, 58, 42]
         elif dut.hit.value == blocks.OAK_LEAVES: col = [129, 165, 118]
-        else: col =[82, 70, 84]
+        else: col = [82, 70, 84]
+
+        if dut.hit.value != blocks.AIR:
+            col = (np.array(col) * light).astype(np.uint8)
         
-        img[i // FRAME_WIDTH][i % FRAME_WIDTH] = np.array(col)
+        img[i // FRAME_WIDTH][i % FRAME_WIDTH] = col
 
     plt.imshow(img)
     plt.show()

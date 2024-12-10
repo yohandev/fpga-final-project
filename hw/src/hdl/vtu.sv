@@ -29,6 +29,13 @@ module VoxelTraversalUnit(
         IDLE
     } State;
 
+    typedef enum bit[1:0] {
+        AXIS_NONE,
+        AXIS_X,
+        AXIS_Y,
+        AXIS_Z
+    } Axis;
+
     // Internal state
     State       state;
     logic [4:0] init_timer; // Time since we're in the INITIALIZING state
@@ -39,6 +46,7 @@ module VoxelTraversalUnit(
     vec3        ray_d_dt;   // Movement along each axis per unit t
     vec3        ray_dist;   // Movement along each axis per unit t
     vec3        ray_t_max;  // Nearest voxel boundary in units of t
+    Axis        last_step;  // Direction in which the last step was taken
     logic [5:0] num_steps;  // Number of steps traversed so far
 
     vec3 ray_direction_normalized;
@@ -77,6 +85,7 @@ module VoxelTraversalUnit(
         ray_step.x <= $signed(ray_direction.x) > 0 ? 1 : -1;
         ray_step.y <= $signed(ray_direction.y) > 0 ? 1 : -1;
         ray_step.z <= $signed(ray_direction.z) > 0 ? 1 : -1;
+        last_step <= AXIS_NONE;
         num_steps <= 0;
         
         // Everything else is initialized a few cycles later in INIT state...
@@ -157,7 +166,24 @@ module VoxelTraversalUnit(
                 if (ram_out != BLOCK_AIR) begin
                     // Done traversing!
                     hit <= ram_out;
-                    // TODO: hit_norm <= ???
+                    unique case (last_step)
+                        AXIS_NONE: hit_norm <= 0;
+                        AXIS_X: begin
+                            hit_norm.x <= -fixed'({ray_step.x, D'(0)});
+                            hit_norm.y <= 0;
+                            hit_norm.z <= 0;
+                        end
+                        AXIS_Y: begin
+                            hit_norm.x <= 0;
+                            hit_norm.y <= -fixed'({ray_step.y, D'(0)});
+                            hit_norm.z <= 0;
+                        end
+                        AXIS_Z: begin
+                            hit_norm.x <= 0;
+                            hit_norm.y <= 0;
+                            hit_norm.z <= -fixed'({ray_step.z, D'(0)});;
+                        end
+                    endcase
                     hit_valid <= 1;
 
                     ram_read_enable <= 0;
@@ -167,21 +193,21 @@ module VoxelTraversalUnit(
                         if ($signed(ray_t_max.x) < $signed(ray_t_max.z)) begin
                             ray_pos.x <= $signed(ray_pos.x) + $signed(ray_step.x);
                             ray_t_max.x <= fadd(ray_t_max.x, ray_d_dt.x);
-                            // last_step = Axis::X;
+                            last_step <= AXIS_X;
                         end else begin
                             ray_pos.z <= $signed(ray_pos.z) + $signed(ray_step.z);
                             ray_t_max.z <= fadd(ray_t_max.z, ray_d_dt.z);
-                            // last_step = Axis::Z;
+                            last_step <= AXIS_Z;
                         end
                     end else begin
                         if ($signed(ray_t_max.y) < $signed(ray_t_max.z)) begin
                             ray_pos.y <= $signed(ray_pos.y) + $signed(ray_step.y);
                             ray_t_max.y <= fadd(ray_t_max.y, ray_d_dt.y);
-                            // last_step = Axis::Y;
+                            last_step <= AXIS_Y;
                         end else begin
                             ray_pos.z <= $signed(ray_pos.z) + $signed(ray_step.z);
                             ray_t_max.z <= fadd(ray_t_max.z, ray_d_dt.z);
-                            // last_step = Axis::Z;
+                            last_step <= AXIS_Z;
                         end
                     end
                     num_steps <= num_steps + 1;
