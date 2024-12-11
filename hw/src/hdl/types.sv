@@ -5,8 +5,8 @@
 parameter CHUNK_WIDTH = 80;
 
 // Framebuffer size, in pixels. MUST be a power of 2!!!
-parameter FRAME_WIDTH = 128;
-parameter FRAME_HEIGHT = 64;
+parameter FRAME_WIDTH = 64;
+parameter FRAME_HEIGHT = 32;
 parameter FRAME_AREA = FRAME_WIDTH * FRAME_HEIGHT;
 
 // For now we can support up to 32 blocks

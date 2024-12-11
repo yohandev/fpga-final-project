@@ -15,13 +15,13 @@ module voxel_traversal_unit(
     // Ray hit
     output BlockType    hit,
     output vec3         hit_norm,
-    output logic        hit_valid
+    output logic        hit_valid,
 
     // Memory interface
-    // output BlockPos ram_addr,
-    // output logic    ram_read_enable,
-    // input BlockType ram_out,
-    // input logic     ram_valid
+    output BlockPos ram_addr,
+    output logic    ram_read_enable,
+    input BlockType ram_out,
+    input logic     ram_valid
 );
     // This module is implemented as a state machine
     typedef enum bit[1:0] {
@@ -36,21 +36,6 @@ module voxel_traversal_unit(
         AXIS_Y,
         AXIS_Z
     } Axis;
-
-    // == TODO: remove me, just testing ==
-    BlockPos    ram_addr;
-    logic       ram_read_enable;
-    BlockType   ram_out;
-    logic       ram_valid;
-    chunk chunk(
-        .clk_in(clk_in),
-        .rst_in(rst_in),
-        .addr(ram_addr),
-        .read_enable(ram_read_enable),
-        .out(ram_out),
-        .valid(ram_valid)
-    );
-    // ===================================
 
     // Internal state
     State       state;

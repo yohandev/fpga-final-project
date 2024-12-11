@@ -17,8 +17,8 @@ from cocotb.utils import get_sim_time as gst
 from cocotb.runner import get_runner
 
 
-FRAME_WIDTH = 128
-FRAME_HEIGHT = 64
+FRAME_WIDTH = 64
+FRAME_HEIGHT = 32
 
 async def reset(rst, clk):
     """ Helper function to issue a reset signal to our module """
@@ -28,8 +28,9 @@ async def reset(rst, clk):
     await ClockCycles(clk, 1)
 
 
+sbuf = np.zeros((FRAME_HEIGHT, FRAME_WIDTH, 3), dtype=np.uint8)
+
 async def mock_frame_buffer(dut):
-    sbuf = np.zeros((FRAME_HEIGHT, FRAME_WIDTH, 3), dtype=np.uint8)
     sbuf_flat = sbuf.reshape((FRAME_WIDTH*FRAME_HEIGHT, 3), copy=False)
     while True:
         await RisingEdge(dut.sbuf_write_enable)
@@ -38,11 +39,6 @@ async def mock_frame_buffer(dut):
         value = dut.sbuf_data.value.integer
 
         sbuf_flat[addr] = rgb565.into_rgb8(value)
-
-        # Done!
-        if dut.frame_done.value == 1:
-            plt.imshow(sbuf)
-            plt.show()
 
 
 @cocotb.test()
@@ -58,7 +54,8 @@ async def render_frame(dut):
     await reset(dut.rst_in, dut.clk_in)
     
     await RisingEdge(dut.frame_done)
-    await ClockCycles(dut.clk_in, 10)
+    plt.imshow(sbuf)
+    plt.show()
 
 
 def is_runner():
