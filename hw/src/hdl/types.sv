@@ -4,6 +4,11 @@
 // At any given time, we store one chunk of width 80 (-40..=39 in all dimensions)
 parameter CHUNK_WIDTH = 80;
 
+// Framebuffer size, in pixels. MUST be a power of 2!!!
+parameter FRAME_WIDTH = 256;
+parameter FRAME_HEIGHT = 128;
+parameter FRAME_AREA = FRAME_WIDTH * FRAME_HEIGHT;
+
 // For now we can support up to 32 blocks
 typedef enum logic [4:0] {
     BLOCK_AIR           = 'd0,

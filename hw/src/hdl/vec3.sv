@@ -47,6 +47,22 @@ function automatic fixed vdot(
     vdot = fadd(fmul(a.x, b.x), fadd(fmul(a.y, b.y), fmul(a.z, b.z)));
 endfunction
 
+function automatic vec3 vneg(
+    input vec3 v
+);
+    vneg.x = -$signed(v.x);
+    vneg.y = -$signed(v.y);
+    vneg.z = -$signed(v.z);
+endfunction
+
+function automatic vec3 vdiv2(
+    input vec3 v
+);
+    vdiv2.x = $signed(v.x) >>> 1;
+    vdiv2.y = $signed(v.y) >>> 1;
+    vdiv2.z = $signed(v.z) >>> 1;
+endfunction
+
 // Pipelined vector normalize
 // Delay = 6 cycles
 // Throughput = 1 cycle
