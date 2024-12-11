@@ -1,10 +1,10 @@
 mod block;
-// for macOS and Linux
-// use std::{fs::File, os::unix::fs::FileExt};
 
 // for Windows
 use std::fs::File;
-use std::io::{Write, Seek, SeekFrom};
+use std::io::Write;
+#[cfg(target_family="unix")]
+use std::os::unix::fs::FileExt;
 
 use block::Block;
 use quill::{BlockKind, BlockPosition, Game, Plugin, Position};
@@ -25,9 +25,9 @@ pub struct FpgaPlugin {
 impl Plugin for FpgaPlugin {
     fn enable(_game: &mut quill::Game, setup: &mut quill::Setup<Self>) -> Self {
         setup.add_system(Self::connect_serial);
-        setup.add_system(Self::send_blocks);
+        // setup.add_system(Self::send_blocks);
         setup.add_system(Self::save_chunk_local);
-        setup.add_system(Self::player_input);
+        // setup.add_system(Self::player_input);
 
         Self {
             serial: None,
@@ -167,6 +167,11 @@ impl FpgaPlugin {
         // Save file
         let data = unsafe { std::mem::transmute(&*self.chunk_data) };
 
+        #[cfg(target_family="unix")]
+        if let Err(e) = self.chunk_file.write_all_at(data, 0) {
+            eprintln!("Error writing chunk.bin! {e}");
+        };
+        #[cfg(not(target_family="unix"))]
         if let Err(e) = self.chunk_file.write_all(data) {
             eprintln!("Error writing chunk.bin! {e}");
         };
