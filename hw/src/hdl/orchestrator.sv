@@ -42,7 +42,7 @@ module Orchestrator #(NUM_VTU=1) (
         BlockType   ram_out;
         logic       ram_valid;
 
-        VoxelTraversalUnit vtu(
+        voxel_traversal_unit vtu(
             .clk_in(clk_in),
             .rst_in(rst_in | rst),
             .ray_origin(camera_pos),
@@ -54,6 +54,14 @@ module Orchestrator #(NUM_VTU=1) (
             .ram_read_enable(ram_read_enable),
             .ram_out(ram_out),
             .ram_valid(ram_valid)
+        );
+        chunk chunk(
+            .clk_in(clk_in),
+            .rst_in(rst_in),
+            .addr(ram_addr),
+            .read_enable(ram_read_enable),
+            .out(ram_out),
+            .valid(ram_valid)
         );
     end
 
