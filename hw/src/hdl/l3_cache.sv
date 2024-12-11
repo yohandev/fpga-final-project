@@ -52,14 +52,34 @@ module l3_cache #(
     logic [ADDR_WIDTH-1:0]     addrb;
 
     logic [$clog2(LENGTH)-1:0] xpointer;
+    logic [$clog2(LENGTH)-1:0] x_write_ref;
+    logic [$clog2(LENGTH)-1:0] x_read_ref;
     logic [$clog2(WIDTH)-1:0]  zpointer;
+    logic [$clog2(WIDTH)-1:0]  z_write_ref;
+    logic [$clog2(WIDTH)-1:0]  z_read_ref;
 
     // convert input coordinates into address
     always_comb begin
+        x_write_ref = xpointer + xwrite;
+        x_read_ref = xpointer + xread;
+        z_write_ref = zpointer + zwrite;
+        z_read_ref = zpointer + zread;
+        if (x_write_ref >= LENGTH) begin
+            x_write_ref = x_write_ref - LENGTH;
+        end 
+        if (x_read_ref >= LENGTH) begin
+            x_read_ref = x_read_ref - LENGTH;
+        end
+        if (z_write_ref >= WIDTH) begin
+            z_write_ref = z_write_ref - WIDTH;
+        end
+        if (z_read_ref >= WIDTH) begin
+            z_read_ref = z_read_ref - WIDTH;
+        end
         if (write_enable && !read_enable) begin
-            addrb = ((((xpointer + xwrite) % LENGTH) * (WIDTH*HEIGHT)) + (ywrite * WIDTH) + ((zpointer + zwrite) % WIDTH));
+            addrb = (x_write_ref * (WIDTH*HEIGHT)) + (ywrite*WIDTH) + z_write_ref;
         end else if (!write_enable && read_enable) begin
-            addra = ((((xpointer + xread) % LENGTH) * (WIDTH*HEIGHT)) + (yread * WIDTH) + ((zpointer + zread) % WIDTH));
+            addra = (x_read_ref * (WIDTH*HEIGHT)) + (yread*WIDTH) + z_read_ref;
         end
     end
 

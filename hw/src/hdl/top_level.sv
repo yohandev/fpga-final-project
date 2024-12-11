@@ -12,10 +12,10 @@ module top_level(
     output logic [2:0]  rgb0,
     output logic [2:0]  rgb1,
 
-    // output logic [2:0]  hdmi_tx_p,  // HDMI output signals (positives) (blue, green, red)
-    // output logic [2:0]  hdmi_tx_n,  // HDMI output signals (negatives) (blue, green, red)
-    // output logic        hdmi_clk_p, // Differential HDMI clock
-    // output logic        hdmi_clk_n,
+    output logic [2:0]  hdmi_tx_p,  // HDMI output signals (positives) (blue, green, red)
+    output logic [2:0]  hdmi_tx_n,  // HDMI output signals (negatives) (blue, green, red)
+    output logic        hdmi_clk_p, // Differential HDMI clock
+    output logic        hdmi_clk_n,
 
     input wire 	        uart_rxd,   // UART computer-FPGA
     output logic        uart_txd,    // UART FPGA-computer
@@ -23,11 +23,31 @@ module top_level(
     input wire [3:0]   pmoda
 );
     // Shut up those rgb LEDs for now (active high)
-    // assign rgb1 = 0;
-    // assign rgb0 = 0;
+    assign rgb1 = 0;
+    assign rgb0 = 0;
 
 
     logic sys_rst = btn[0];
+
+    logic          clk_camera;
+    logic          clk_pixel;
+    logic          clk_5x;
+    logic          clk_xc;
+
+    logic          clk_100_passthrough;
+
+    cw_hdmi_clk_wiz wizard_hdmi
+    (.sysclk(clk_100_passthrough),
+     .clk_pixel(clk_pixel),
+     .clk_tmds(clk_5x),
+     .reset(0));
+
+    // cw_fast_clk_wiz wizard_migcam
+    //     (.clk_in1(clk_100mhz),
+    //     .clk_camera(clk_camera),
+    //     .clk_xc(clk_xc),
+    //     .clk_100(clk_100_passthrough),
+    //     .reset(0));
 
     // Dimensional parameter
     parameter LENGTH = 64;
@@ -216,11 +236,11 @@ module top_level(
         .ray_direction(ray_direction),
         .hit(hit),
         .hit_norm(hit_norm),
-        .hit_valid(hit_valid),
-        .ram_addr(ram_addr),
-        .ram_read_enable(ram_read_enable),
-        .ram_out(ram_out),
-        .ram_valid(ram_valid)
+        .hit_valid(hit_valid)
+        // .ram_addr(ram_addr),
+        // .ram_read_enable(ram_read_enable),
+        // .ram_out(ram_out),
+        // .ram_valid(ram_valid)
     );
 
     always_ff @(posedge clk_100mhz) begin
@@ -232,6 +252,110 @@ module top_level(
 
         led <= hit ^ hit_norm & hit_valid | ram_addr;
     end
+
+    // hdmi
+    logic          hsync_hdmi;
+    logic          vsync_hdmi;
+    logic [10:0]   hcount_hdmi;
+    logic [9:0]    vcount_hdmi;
+    logic          active_draw_hdmi;
+    logic          new_frame_hdmi;
+    logic [5:0]    frame_count_hdmi;
+    logic          nf_hdmi;
+    logic [9:0]    tmds_10b [0:2]; //output of each TMDS encoder!
+    logic          tmds_signal [2:0]; //output of each TMDS serializer!
+
+    logic [10:0] hcount_pipe [7:0];
+    logic [9:0] vcount_pipe [7:0];
+    logic nf_pipe [7:0];
+    logic hsync_pipe [7:0];
+    logic vsync_pipe [7:0];
+    logic active_draw_pipe [7:0];
+
+    always_ff @(posedge clk_pixel) begin
+        hcount_pipe[0] <= hcount_hdmi;
+        vcount_pipe[0] <= vcount_hdmi;
+        nf_pipe[0] <= nf_hdmi;
+        hsync_pipe[0] <= hsync_hdmi;
+        vsync_pipe[0] <= vsync_hdmi;
+        active_draw_pipe[0] <= active_draw_hdmi;
+        for (int i = 1; i < PS3; i = i + 1) begin
+            hcount_pipe[i] <= hcount_pipe[i-1];
+            vcount_pipe[i] <= vcount_pipe[i-1];
+            nf_pipe[i] <= nf_pipe[i-1];
+            hsync_pipe[i] <= hsync_pipe[i-1];
+            vsync_pipe[i] <= vsync_pipe[i-1];
+            active_draw_pipe[i] <= active_draw_pipe[i-1];
+        end
+    end
+
+    video_sig_gen vsg
+     (
+      .pixel_clk_in(clk_pixel),
+      .rst_in(sys_rst_pixel),
+      .hcount_out(hcount_hdmi),
+      .vcount_out(vcount_hdmi),
+      .vs_out(vsync_hdmi),
+      .hs_out(hsync_hdmi),
+      .nf_out(nf_hdmi),
+      .ad_out(active_draw_hdmi),
+      .fc_out(frame_count_hdmi)
+      );
+
+    //three tmds_encoders (blue, green, red)
+   //note green should have no control signal like red
+   //the blue channel DOES carry the two sync signals:
+   //  * control_in[0] = horizontal sync signal
+   //  * control_in[1] = vertical sync signal
+
+   tmds_encoder tmds_red(
+       .clk_in(clk_pixel),
+       .rst_in(sys_rst_pixel),
+       .data_in(red),
+       .control_in(2'b0),
+       .ve_in(active_draw_pipe[PS3-1]),
+       .tmds_out(tmds_10b[2]));
+
+   tmds_encoder tmds_green(
+         .clk_in(clk_pixel),
+         .rst_in(sys_rst_pixel),
+         .data_in(green),
+         .control_in(2'b0),
+         .ve_in(active_draw_pipe[PS3-1]),
+         .tmds_out(tmds_10b[1]));
+
+   tmds_encoder tmds_blue(
+        .clk_in(clk_pixel),
+        .rst_in(sys_rst_pixel),
+        .data_in(blue),
+        .control_in({vsync_pipe[PS3-1],hsync_pipe[PS3-1]}),
+        .ve_in(active_draw_pipe[PS3-1]),
+        .tmds_out(tmds_10b[0]));
+
+    //three tmds_serializers (blue, green, red):
+   tmds_serializer red_ser(
+         .clk_pixel_in(clk_pixel),
+         .clk_5x_in(clk_5x),
+         .rst_in(sys_rst_pixel),
+         .tmds_in(tmds_10b[2]),
+         .tmds_out(tmds_signal[2]));
+   tmds_serializer green_ser(
+         .clk_pixel_in(clk_pixel),
+         .clk_5x_in(clk_5x),
+         .rst_in(sys_rst_pixel),
+         .tmds_in(tmds_10b[1]),
+         .tmds_out(tmds_signal[1]));
+   tmds_serializer blue_ser(
+         .clk_pixel_in(clk_pixel),
+         .clk_5x_in(clk_5x),
+         .rst_in(sys_rst_pixel),
+         .tmds_in(tmds_10b[0]),
+         .tmds_out(tmds_signal[0]));
+
+    OBUFDS OBUFDS_blue (.I(tmds_signal[0]), .O(hdmi_tx_p[0]), .OB(hdmi_tx_n[0]));
+    OBUFDS OBUFDS_green(.I(tmds_signal[1]), .O(hdmi_tx_p[1]), .OB(hdmi_tx_n[1]));
+    OBUFDS OBUFDS_red  (.I(tmds_signal[2]), .O(hdmi_tx_p[2]), .OB(hdmi_tx_n[2]));
+    OBUFDS OBUFDS_clock(.I(clk_pixel), .O(hdmi_clk_p), .OB(hdmi_clk_n));
 endmodule
 
 `default_nettype wire
