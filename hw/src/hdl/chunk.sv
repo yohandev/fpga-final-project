@@ -1,3 +1,6 @@
+`ifndef CHUNK_SV
+`define CHUNK_SV
+
 `include "types.sv"
 `include "xilinx_single_port_ram_read_first.v"
 
@@ -54,3 +57,5 @@ module chunk(
     end
 
 endmodule
+
+`endif

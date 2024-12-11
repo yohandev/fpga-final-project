@@ -1,10 +1,12 @@
 `include "fixed.sv"
 `include "vec3.sv"
 `include "types.sv"
+`include "vtu.sv"
+`include "chunk.sv"
 
 // Orchestrator renders a single frame right after rst_in has a falling edge. Keep on
 // resetting it to render more frames, making sure to throttle according to frame_done
-module Orchestrator #(NUM_VTU=1) (
+module orchestrator #(NUM_VTU=1) (
     input wire clk_in,
     input wire rst_in,
 
@@ -12,11 +14,11 @@ module Orchestrator #(NUM_VTU=1) (
     input vec3 camera_position,             // Camera position
     input vec3 camera_heading,              // Camera heading
 
-    output logic [15:0] sbuf_data,          // Pixel (RGB565) to write to screen buffer 
-    output logic [15:0] sbuf_addr,          // Row-major address of pixel to write to screen buffer
-    output logic        sbuf_write_enable,  // Whether or not we should write to the screen buffer
+    output logic [15:0]                     sbuf_data,          // Pixel (RGB565) to write to screen buffer 
+    output logic [$clog2(FRAME_AREA)-1:0]   sbuf_addr,          // Row-major address of pixel to write to screen buffer
+    output logic                            sbuf_write_enable,  // Whether or not we should write to the screen buffer
 
-    output logic frame_done                 // High for one cycle when the frame is done rendering
+    output logic frame_done                 // High when the frame is done rendering
 );
     // This module is implemented as a state machine
     typedef enum bit[1:0] {
@@ -28,8 +30,11 @@ module Orchestrator #(NUM_VTU=1) (
     // Voxel traversal unit instances
     for (genvar i = 0; i < NUM_VTU; i++) begin:vtu
         // Input/state management
-        logic       rst;
-        vec3        ray_direction;
+        logic           rst;
+        logic           uninit;
+        vec3            ray_direction;
+        vec3            ray_origin;
+        logic [15:0]    pixel_addr;
        
         // VTU output
         BlockType   hit;
@@ -45,15 +50,15 @@ module Orchestrator #(NUM_VTU=1) (
         voxel_traversal_unit vtu(
             .clk_in(clk_in),
             .rst_in(rst_in | rst),
-            .ray_origin(camera_pos),
+            .ray_origin(ray_origin),
             .ray_direction(ray_direction),
             .hit(hit),
             .hit_norm(hit_norm),
-            .hit_valid(hit_valid),
-            .ram_addr(ram_addr),
-            .ram_read_enable(ram_read_enable),
-            .ram_out(ram_out),
-            .ram_valid(ram_valid)
+            .hit_valid(hit_valid)
+            // .ram_addr(ram_addr),
+            // .ram_read_enable(ram_read_enable),
+            // .ram_out(ram_out),
+            // .ram_valid(ram_valid)
         );
         chunk chunk(
             .clk_in(clk_in),
@@ -78,10 +83,12 @@ module Orchestrator #(NUM_VTU=1) (
     vec3        pixel_dv;   // Change along v axis per pixel
     vec3        pixel0_loc; // World coordinate of the top-left pixel
     
-    logic [$clog2(FRAME_AREA)-1:0]  next_pixel_addr;
+    logic [$clog2(FRAME_AREA):0]    next_pixel_addr;
     fixed                           next_pixel_x;
     fixed                           next_pixel_y;
     vec3                            pixel_loc;
+
+    logic [$clog2(NUM_VTU)-1:0] vtu_to_service;
 
     // = next_pixel_addr % FRAME_WIDTH
     assign next_pixel_x = fixed'({1'sh0, next_pixel_addr[$clog2(FRAME_WIDTH)-1:0], D'(0)});
@@ -98,6 +105,46 @@ module Orchestrator #(NUM_VTU=1) (
         .out(normalize_out)
     );
 
+    // Static arbitration over which VTU can write to frame buffer
+    always_ff @(posedge clk_in) if (!rst_in && state == RENDERING) begin
+        sbuf_write_enable <= 0;
+    end
+    for (genvar j = 0; j < NUM_VTU; j++) begin
+        always_ff @(posedge clk_in) if (rst_in) begin
+            vtu[j].uninit <= 1;
+        end else if (state == RENDERING) begin
+            vtu[j].rst <= 0;
+
+            // Put pixel in frame buffer
+            if (vtu[j].hit_valid) begin
+                // TODO: pass this off to registers for a pipelined shading engine
+                sbuf_write_enable <= 1;
+                sbuf_addr <= vtu[j].pixel_addr;
+                // TODO: actual shading
+                unique case (vtu[j].hit)
+                    BLOCK_AIR: sbuf_data <= 16'hAE5D;
+                    BLOCK_WATER: sbuf_data <= 16'h3211;
+                    BLOCK_GRASS: sbuf_data <= 16'h5C29;
+                    BLOCK_DIRT: sbuf_data <= 16'h8309;
+                    BLOCK_OAK_LOG: sbuf_data <= 16'h59C5;
+                    BLOCK_OAK_LEAVES: sbuf_data <= 16'h852E;
+                    default: sbuf_data <= 16'h522A;
+                endcase
+            end
+
+            // Re-assign VTU instance
+            if ((vtu[j].hit_valid && !vtu[j].rst) | vtu[j].uninit) begin
+                // TODO: this won't work with multiple VTU. only the chosen-one should update its ray parameters
+                vtu[j].ray_origin <= camera_pos;
+                vtu[j].ray_direction <= vsub(pixel_loc, camera_pos);
+                vtu[j].pixel_addr <= next_pixel_addr;
+                vtu[j].rst <= 1;
+                vtu[j].uninit <= 0;
+                next_pixel_addr <= next_pixel_addr + 1;
+            end
+        end
+    end
+
     always_ff @(posedge clk_in) if (rst_in) begin
     // Initialize parameters (prepare for a frame):
         frame_done <= 0;
@@ -110,6 +157,8 @@ module Orchestrator #(NUM_VTU=1) (
 
         camera_pos <= camera_position;
         normalize_in <= camera_heading;
+
+        next_pixel_addr <= 0;
     end else unique case (state)
     // State machine:
         INIT: begin
@@ -124,39 +173,41 @@ module Orchestrator #(NUM_VTU=1) (
                 w <= normalize_out;
 
                 // Vec3::UP.cross(w)
-                normalize_in.x <= w.z;
+                normalize_in.x <= normalize_out.z;
                 normalize_in.y <= 0;
-                normalize_in.z <= -$signed(w.x);
+                normalize_in.z <= -$signed(normalize_out.x);
             end
 
-            // Cycles #7-11: u is being normalized
+            // Cycles #7-12: u is being normalized
             // (stall)
 
-            // Cycle #12: Latch normalized u
-            if (init_timer == 12) begin
+            // Cycle #13: Latch normalized u
+            if (init_timer == 13) begin
                 u <= normalize_out;
             end
 
-            // Cycle #13: v = w.cross(u)
-            if (init_timer == 13) begin
+            // Cycle #14: v = w.cross(u)
+            if (init_timer == 14) begin
                 v.x <= fsub(fmul(w.y, u.z), fmul(w.z, u.y));
                 v.y <= fsub(fmul(w.z, u.x), fmul(w.x, u.z));
                 v.z <= fsub(fmul(w.x, u.y), fmul(w.y, u.x));
             end
 
-            // Cycle #14: Calculate viewport UV, pixel delta UV
-            if (init_timer == 14) begin
+            // Cycle #15: Calculate viewport UV, pixel delta UV
+            if (init_timer == 15) begin
                 // These magic values are analogous to fixed'(VIEWPORT_[WIDTH/HEIGHT])
+                // VIEWPORT_HEIGHT is fixed at 2
+                // VIEWPORT_WIDTH / VIEWPORT_HEIGHT is fixed at 2
                 viewport_u <= vmul(u, 20'sh400);
                 viewport_v <= vmul(vneg(v), 20'sh200);
 
                 // Magic numbers are analogous to fixed'(VIEWPORT_[WIDTH/HEIGHT] / FRAME_[WIDTH/HEIGHT])
-                pixel_du <= vmul(u, 20'sh4);
-                pixel_dv <= vmul(vneg(v), 20'sh4);
+                pixel_du <= vmul(u, 20'sh400 >>> $clog2(FRAME_WIDTH));
+                pixel_dv <= vmul(vneg(v), 20'sh200 >>> $clog2(FRAME_HEIGHT));
             end
 
-            // Cycle #15: Calculate upper left pixel location and we're ready to start
-            if (init_timer == 15) begin
+            // Cycle #16: Calculate upper left pixel location and we're ready to start
+            if (init_timer == 16) begin
                 pixel0_loc <= vadd(
                     vsub(vsub(camera_pos, w), vdiv2(vadd(viewport_u, viewport_v))), // Viewport corner
                     vdiv2(vadd(pixel_du, pixel_dv))                                 // Center of pixel
@@ -166,6 +217,11 @@ module Orchestrator #(NUM_VTU=1) (
             end
         end
         RENDERING: begin
+            // (most of this stuff happens above in the generate block)
+            if (next_pixel_addr == FRAME_AREA) begin
+                state <= IDLE;
+                frame_done <= 1;
+            end
         end
         IDLE: begin
             // Nothing to do

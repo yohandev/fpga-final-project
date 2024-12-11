@@ -129,8 +129,8 @@ async def test_mock_render(dut):
     cocotb.start_soon(Clock(dut.clk_in, 10, units="ns").start())
     # cocotb.start_soon(mock_cache(dut))
 
-    FRAME_WIDTH = 256
-    FRAME_HEIGHT = 128
+    FRAME_WIDTH = 128
+    FRAME_HEIGHT = 64
     VIEWPORT_HEIGHT = fixed.fixed(2)
     VIEWPORT_WIDTH = fixed.fixed(2.0 * FRAME_WIDTH / FRAME_HEIGHT)
 
