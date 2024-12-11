@@ -90,10 +90,10 @@ set_property -dict {PACKAGE_PIN A8  IOSTANDARD LVCMOS33} [ get_ports "sw[15]" ]
 
 # PMOD A Signals
 
-# set_property -dict {PACKAGE_PIN F14 IOSTANDARD LVCMOS33}  [ get_ports "cs" ]
-# set_property -dict {PACKAGE_PIN F15 IOSTANDARD LVCMOS33}  [ get_ports "copi" ]
-# set_property -dict {PACKAGE_PIN H13 IOSTANDARD LVCMOS33}  [ get_ports "cipo" ]
-# set_property -dict {PACKAGE_PIN H14 IOSTANDARD LVCMOS33}  [ get_ports "dclk" ]
+set_property -dict {PACKAGE_PIN F14 IOSTANDARD LVCMOS33}  [ get_ports "pmoda[0]" ]
+set_property -dict {PACKAGE_PIN F15 IOSTANDARD LVCMOS33}  [ get_ports "pmoda[1]" ]
+set_property -dict {PACKAGE_PIN H13 IOSTANDARD LVCMOS33}  [ get_ports "pmoda[2]" ]
+set_property -dict {PACKAGE_PIN H14 IOSTANDARD LVCMOS33}  [ get_ports "pmoda[3]" ]
 #set_property -dict {PACKAGE_PIN J13 IOSTANDARD LVCMOS33}  [ get_ports "pmoda[4]" ]
 #set_property -dict {PACKAGE_PIN J14 IOSTANDARD LVCMOS33}  [ get_ports "pmoda[5]" ]
 #set_property -dict {PACKAGE_PIN E14 IOSTANDARD LVCMOS33}  [ get_ports "pmoda[6]" ]
@@ -137,16 +137,16 @@ set_property -dict {PACKAGE_PIN A8  IOSTANDARD LVCMOS33} [ get_ports "sw[15]" ]
 # set_property IOSTANDARD LVCMOS33 [ get_ports "spk*"]
 
 # PWM Microphone signals
-#set_property -dict {PACKAGE_PIN E12 IOSTANDARD LVCMOS33} [get_ports {mic_clk}]
-#set_property -dict {PACKAGE_PIN D12 IOSTANDARD LVCMOS33} [get_ports {mic_data}]
+# set_property -dict {PACKAGE_PIN E12 IOSTANDARD LVCMOS33} [get_ports {mic_clk}]
+# set_property -dict {PACKAGE_PIN D12 IOSTANDARD LVCMOS33} [get_ports {mic_data}]
 
 
 
 # UART over micro-USB signals
 # labeled from the perspective of the FPGA!
 # note the inversion from RealDigital official documentation.
-# set_property -dict {PACKAGE_PIN B16 IOSTANDARD LVCMOS33} [get_ports {uart_rxd}]
-# set_property -dict {PACKAGE_PIN A16 IOSTANDARD LVCMOS33} [get_ports {uart_txd}]
+set_property -dict {PACKAGE_PIN B16 IOSTANDARD LVCMOS33} [get_ports {uart_rxd}]
+set_property -dict {PACKAGE_PIN A16 IOSTANDARD LVCMOS33} [get_ports {uart_txd}]
 
 
 ############## NET - IOSTANDARD ##################

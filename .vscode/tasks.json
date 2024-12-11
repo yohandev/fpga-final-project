@@ -7,7 +7,9 @@
 			"problemMatcher": [
 				"$rustc"
 			],
-			"args": ["--release"],
+			"args": [
+				"--release"
+			],
 			"options": {
 				"cwd": "${workspaceFolder}/server/feather"
 			},
@@ -20,11 +22,13 @@
 			"command": "${workspaceFolder}/server/feather/target/release/cargo-quill",
 			"args": ["build", "--native", "--release"],
 			"options": {
-				"cwd": "${workspaceFolder}/server/plugin",
+				"cwd": "${workspaceFolder}/server/plugin"
 			},
 			"group": "build",
 			"label": "Build Plugin",
-			"dependsOn": ["Build Server"],
+			"dependsOn": [
+				"Build Server"
+			],
 			"hide": true
 		},
 		{
@@ -32,6 +36,14 @@
 			"command": "mkdir -p ${workspaceFolder}/server/dummy/plugins && cp ${workspaceFolder}/server/feather/target/release/feather-server ${workspaceFolder}/server/dummy && cp ${workspaceFolder}/server/target/release/fpgacraft-plugin.plugin ${workspaceFolder}/server/dummy/plugins",
 			"label": "Prepare Dummy Server",
 			"dependsOn": ["Build Server", "Build Plugin"],
+			"hide": true
+		},
+		{
+			"type": "shell",
+			"command": "cp",
+			"label": "Copy plugin to dummy",
+			"args": ["${workspaceFolder}/server/target/release/fpgacraft-plugin.plugin", "${workspaceFolder}/server/dummy/plugins"],
+			"dependsOn": ["Build Plugin"],
 			"hide": true
 		},
 		{
@@ -44,22 +56,22 @@
 			"dependsOn": ["Prepare Dummy Server"]
 		},
 		{
-            "label": "Upload to FPGA",
-            "type": "shell",
-            "command": "openFPGALoader -b arty_s7_50 ./obj/final.bit",
-            "problemMatcher": [],
+			"label": "Upload to FPGA",
+			"type": "shell",
+			"command": "openFPGALoader -b arty_s7_50 ./obj/final.bit",
+			"problemMatcher": [],
 			"options": {
 				"cwd": "./hw"
 			}
-        },
-        {
-            "label": "Build with lab-bc",
-            "type": "shell",
-            "command": "lab-bc run ./src ./obj",
-            "problemMatcher": [],
+		},
+		{
+			"label": "Build with lab-bc",
+			"type": "shell",
+			"command": "lab-bc run ./src ./obj",
+			"problemMatcher": [],
 			"options": {
 				"cwd": "./hw"
 			}
-        }
+		}
 	]
 }
