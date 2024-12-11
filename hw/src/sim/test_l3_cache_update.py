@@ -69,10 +69,42 @@ async def test_a(dut):
     await ClockCycles(dut.clk_in,5)
     dut.rst_in.value = 0
     await ClockCycles(dut.clk_in, 1)
+    print("this is newer version")
+    # Write initial block data
     await write_block_data(dut, L, K, M)
     await ClockCycles(dut.clk_in, 100)
+
+    # Perform read/write test
     await read_write_block_data(dut, L, K, M)
     await ClockCycles(dut.clk_in, 100)
+
+    # Perform a read test before movement
+    dut._log.info("Reading block data before movement...")
+    await read_block_data(dut, L, K, M)
+    await ClockCycles(dut.clk_in, 100)
+
+    # Move forward (+X): control_input = 4'b0001
+    dut._log.info("Moving forward (+X)...")
+    dut.control_input.value = 0b0001
+    dut.control_trigger.value = 1
+    dut.valid_in.value = 1
+    await ClockCycles(dut.clk_in, 1)
+    dut.control_trigger.value = 0
+    dut.valid_in.value = 0
+    await ClockCycles(dut.clk_in, 5)
+
+    # Move left (-Z): control_input = 4'b1000
+    dut._log.info("Moving left (-Z)...")
+    dut.control_input.value = 0b1000
+    dut.control_trigger.value = 1
+    dut.valid_in.value = 1
+    await ClockCycles(dut.clk_in, 1)
+    dut.control_trigger.value = 0
+    dut.valid_in.value = 0
+    await ClockCycles(dut.clk_in, 5)
+
+    # After moving +X and -Z, read again from the same block data to see changes
+    dut._log.info("Reading block data after movement (+X and -Z)...")
     await read_block_data(dut, L, K, M)
     await ClockCycles(dut.clk_in, 100)
 
@@ -104,7 +136,7 @@ def is_runner():
     run_test_args = []
     runner.test(
         hdl_toplevel="l3_cache",
-        test_module="test_l3_cache",
+        test_module="test_l3_cache_update",
         test_args=run_test_args,
         waves=True
     )

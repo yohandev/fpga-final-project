@@ -7,7 +7,9 @@
 			"problemMatcher": [
 				"$rustc"
 			],
-			"args": ["--release"],
+			"args": [
+				"--release"
+			],
 			"options": {
 				"cwd": "${workspaceFolder}/server/feather"
 			},
@@ -18,53 +20,74 @@
 		{
 			"type": "process",
 			"command": "${workspaceFolder}/server/feather/target/release/cargo-quill.exe",
-			"args": ["build", "--native", "--release"],
+			"args": [
+				"build",
+				"--native",
+				"--release"
+			],
 			"options": {
-				"cwd": "${workspaceFolder}/server/plugin",
+				"cwd": "${workspaceFolder}/server/plugin"
 			},
 			"group": "build",
 			"label": "Build Plugin",
-			"dependsOn": ["Build Server"],
-			"hide": true
+			"dependsOn": [
+				"Build Server"
+			],
+			"hide": false
 		},
 		{
 			"type": "shell",
-			"command": "mkdir -p ${workspaceFolder}/server/dummy/plugins && cp ${workspaceFolder}/server/feather/target/release/feather-server ${workspaceFolder}/server/dummy && cp ${workspaceFolder}/server/target/release/fpgacraft-plugin ${workspaceFolder}/server/dummy/plugins",
+			"command": "mkdir -p ${workspaceFolder}/server/dummy/plugins ; cp ${workspaceFolder}/server/feather/target/release/feather-server.exe ${workspaceFolder}/server/dummy ; cp ${workspaceFolder}/server/target/release/fpgacraft-plugin.plugin ${workspaceFolder}/server/dummy/plugins",
 			"label": "Prepare Dummy Server",
-			"dependsOn": ["Build Server", "Build Plugin"],
+			"dependsOn": [
+				"Build Server",
+				"Build Plugin"
+			],
 			"hide": false
 		},
+		{
+			"type": "shell",
+			"command": "cp",
+			"label": "Copy plugin to dummy",
+			"args": ["${workspaceFolder}/server/target/release/fpgacraft-plugin.plugin", "${workspaceFolder}/server/dummy/plugins"],
+			"dependsOn": ["Build Plugin"]
+		}
 		{
 			"type": "process",
 			"command": "${workspaceFolder}/server/dummy/feather-server.exe",
 			"problemMatcher": [
 				"$rustc"
 			],
-			"args": ["--release"],
+			"args": [
+				"--release"
+			],
 			"options": {
-				"cwd": "${workspaceFolder}/server/dummy/feather-server.exe"
+				"cwd": "${workspaceFolder}/server/dummy"
 			},
 			"label": "Start Server",
 			"hide": false,
-			"dependsOn": ["Prepare Dummy Server"]
+			"dependsOn": [
+				// "Prepare Dummy Server"
+				"Copy plugin to dummy"
+			]
 		},
 		{
-            "label": "Upload to FPGA",
-            "type": "shell",
-            "command": "openFPGALoader -b arty_s7_50 ./obj/final.bit",
-            "problemMatcher": [],
+			"label": "Upload to FPGA",
+			"type": "shell",
+			"command": "openFPGALoader -b arty_s7_50 ./obj/final.bit",
+			"problemMatcher": [],
 			"options": {
 				"cwd": "./hw"
 			}
-        },
-        {
-            "label": "Build with lab-bc",
-            "type": "shell",
-            "command": "lab-bc run ./src ./obj",
-            "problemMatcher": [],
+		},
+		{
+			"label": "Build with lab-bc",
+			"type": "shell",
+			"command": "lab-bc run ./src ./obj",
+			"problemMatcher": [],
 			"options": {
 				"cwd": "./hw"
 			}
-        }
+		}
 	]
 }

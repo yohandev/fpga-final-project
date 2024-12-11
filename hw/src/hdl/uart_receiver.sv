@@ -1,7 +1,6 @@
-`timescale 1ns / 1ps
 `default_nettype none
 
-module uart_receive
+module uart_receiver
   #(
     parameter INPUT_CLOCK_FREQ = 100_000_000,
     parameter BAUD_RATE = 460800
