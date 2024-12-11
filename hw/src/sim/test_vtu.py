@@ -76,9 +76,7 @@ async def mock_cache(dut):
         if not all(-40 <= i < 40 for i in pos):
             return None
         
-        # TODO: regenerate chunk.bin with correct chunk size. right now it's
-        # just re-centering coords (+24)
-        return 128 * ((128 * (pos[2] + 40 + 24)) + (pos[1] + 40 + 24)) + (pos[0] + 40 + 24)
+        return 80 * ((80 * (pos[2] + 40)) + (pos[1] + 40)) + (pos[0] + 40)
 
     while True:
         await RisingEdge(dut.clk_in)

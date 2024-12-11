@@ -2,7 +2,7 @@
 `define TYPES_SV
 
 // At any given time, we store one chunk of width 80 (-40..=39 in all dimensions)
-`define CHUNK_WIDTH 80
+parameter CHUNK_WIDTH = 80;
 
 // For now we can support up to 32 blocks
 typedef enum logic [4:0] {
@@ -28,9 +28,9 @@ typedef enum logic [4:0] {
 
 // The position of a block (-64..=64 in all dimensions)
 typedef struct packed {
-    logic signed [$clog2(`CHUNK_WIDTH)-1:0] x;
-    logic signed [$clog2(`CHUNK_WIDTH)-1:0] y;
-    logic signed [$clog2(`CHUNK_WIDTH)-1:0] z;
+    logic signed [$clog2(CHUNK_WIDTH)-1:0] x;
+    logic signed [$clog2(CHUNK_WIDTH)-1:0] y;
+    logic signed [$clog2(CHUNK_WIDTH)-1:0] z;
 } BlockPos;
 
 `endif

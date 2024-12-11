@@ -21,7 +21,7 @@ impl Default for MockCache {
 
 impl MockCache {
     /// Size of the cache in one dimension
-    pub const SIZE: usize = 128;
+    pub const SIZE: usize = 80;
 
     pub fn query(&self, idx: Vec3i) -> Option<Block> {
         const HALF_CHUNK_SIZE: i16 = (MockCache::SIZE as i16) / 2;

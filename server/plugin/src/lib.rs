@@ -42,7 +42,7 @@ impl Plugin for FpgaPlugin {
 
 impl FpgaPlugin {
     const SERIAL_BAUD: u32 = 115200;
-    const CHUNK_SIZE: usize = 128;
+    const CHUNK_SIZE: usize = 80;
 
     /// Attempts to connect the FPGA each frame
     fn connect_serial(&mut self, _: &mut Game) {
