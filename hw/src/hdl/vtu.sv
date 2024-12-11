@@ -3,7 +3,7 @@
 `include "vec3.sv"
 `include "vec3i.sv"
 
-module VoxelTraversalUnit(
+module voxel_traversal_unit(
     input wire clk_in,
     input wire rst_in,
 
@@ -38,7 +38,7 @@ module VoxelTraversalUnit(
 
     // Internal state
     State       state;
-    logic [4:0] init_timer; // Time since we're in the INITIALIZING state
+    logic [4:0] init_timer; // Time since we're in the INIT state
     vec3        ray_ori;    // Ray origin
     vec3        ray_dir;    // Normalized ray direction
     vec3i       ray_pos;    // Current ray/block position

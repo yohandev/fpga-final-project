@@ -151,7 +151,7 @@ module top_level(
     BlockType   ram_out;
     logic       ram_valid;
 
-    VoxelTraversalUnit vtu(
+    voxel_traversal_unit vtu(
         .clk_in(clk_100mhz),
         .rst_in(sys_rst),
         .ray_origin(ray_origin),

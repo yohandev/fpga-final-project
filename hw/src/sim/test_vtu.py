@@ -249,7 +249,7 @@ def is_runner():
     runner.build(
         sources=sources,
         includes=includes,
-        hdl_toplevel="VoxelTraversalUnit",
+        hdl_toplevel="voxel_traversal_unit",
         always=True,
         build_args=build_test_args,
         parameters=parameters,
@@ -259,7 +259,7 @@ def is_runner():
     )
     run_test_args = []
     runner.test(
-        hdl_toplevel="VoxelTraversalUnit",
+        hdl_toplevel="voxel_traversal_unit",
         test_module="test_vtu",
         test_args=run_test_args,
         waves=True
