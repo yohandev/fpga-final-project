@@ -37,7 +37,7 @@ module chunk(
         .RAM_DEPTH(CHUNK_WIDTH*CHUNK_WIDTH*CHUNK_WIDTH),
         .RAM_PERFORMANCE("HIGH_PERFORMANCE"),
         // Don't know how else to get this to work in cocotb...
-        .INIT_FILE("/Users/yohan/Documents/MIT/6.2050/final/hw/src/data/chunk.mem")
+        .INIT_FILE("chunk.mem")
     ) rom (
         .addra(oob ? 19'b0 : flat_addr),
         .dina(5'b0),

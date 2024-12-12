@@ -217,73 +217,35 @@ module top_level(
         .block_data_out(block_sample_data)
     );
 
-
-
-    vec3        ray_origin;
-    vec3        ray_direction;
-    BlockType   hit;
-    vec3        hit_norm;
-    logic       hit_valid;
-    BlockPos    ram_addr;
-    logic       ram_read_enable;
-    BlockType   ram_out;
-    logic       ram_valid;
-
-    voxel_traversal_unit vtu(
-        .clk_in(clk_100_passthrough),
-        .rst_in(sys_rst),
-        .ray_origin(ray_origin),
-        .ray_direction(ray_direction),
-        .hit(hit),
-        .hit_norm(hit_norm),
-        .hit_valid(hit_valid)
-        // .ram_addr(ram_addr),
-        // .ram_read_enable(ram_read_enable),
-        // .ram_out(ram_out),
-        // .ram_valid(ram_valid)
-    );
-
-    
-
-    always_ff @(posedge clk_100_passthrough) begin
-        // Testing fixed's synthesis with BS input/outputs so it doesn't get optimized out
-        ray_origin <= {sw, sw, sw, sw};
-        ray_direction <= {sw, sw, sw, sw};
-        ram_out <= BlockType'(sw);
-        ram_valid <= btn[0];
-
-        led <= hit ^ hit_norm & hit_valid | ram_addr;
-    end
-
     logic [15:0] sbuf_data;
     logic [15:0] sbuf_addr;
     logic        sbuf_write_enable;
     logic        frame_done;
 
-    Orchestrator #(.NUM_VTU(1)) orchestrator (
-                                                .clk_in(clk_100_passthrough),
-                                                .rst_in(sys_rst),
-                                                .camera_position(ray_origin),
-                                                .camera_heading(ray_direction),
-                                                .sbuf_data(sbuf_data),
-                                                .sbuf_addr(sbuf_addr),
-                                                .sbuf_write_enable(sbuf_write_enable),
-                                                .frame_done(frame_done)
+    orchestrator #(.NUM_VTU(1)) orchestrator(
+        .clk_in(clk_100mhz),
+        .rst_in(sys_rst),
+        // TODO: these, but not hard coded
+        .camera_position('h30000000),
+        .camera_heading('h100),
+        .sbuf_data(sbuf_data),
+        .sbuf_addr(sbuf_addr),
+        .sbuf_write_enable(sbuf_write_enable),
+        .frame_done(frame_done)
     );
     
-
     logic [15:0] frame_buff_raw;
-    localparam FB_DEPTH = 160*128;
+    localparam FB_DEPTH = FRAME_WIDTH*FRAME_HEIGHT;
     localparam FB_SIZE = $clog2(FB_DEPTH);
     logic [FB_SIZE-1:0] addrb;
     logic good_addrb;
 
     always_ff @(posedge clk_pixel)begin
-        addrb <= (hcount_hdmi>>2) + 160*(vcount_hdmi>>2);
-        good_addrb <= ((hcount_hdmi>>2) < 160) && ((vcount_hdmi>>2) <128);
+        addrb <= (hcount_hdmi>>2) + FRAME_WIDTH*(vcount_hdmi>>2);
+        good_addrb <= ((hcount_hdmi>>2) < FRAME_WIDTH) && ((vcount_hdmi>>2) < FRAME_HEIGHT);
     end
 
-    blk_mem_gen_0 frame_buffer (
+    xilinx_true_dual_port_read_first_2_clock_ram frame_buffer(
         .addra(sbuf_addr), //pixels are stored using this math
         .clka(clk_camera),
         .wea(sbuf_write_enable),
@@ -345,64 +307,66 @@ module top_level(
     //     end
     // end
 
-    video_sig_gen vsg
-     (
-      .pixel_clk_in(clk_pixel),
-      .rst_in(sys_rst_pixel),
-      .hcount_out(hcount_hdmi),
-      .vcount_out(vcount_hdmi),
-      .vs_out(vsync_hdmi),
-      .hs_out(hsync_hdmi),
-      .nf_out(nf_hdmi),
-      .ad_out(active_draw_hdmi),
-      .fc_out(frame_count_hdmi)
-      );
+    video_sig_gen vsg(
+        .pixel_clk_in(clk_pixel),
+        .rst_in(sys_rst_pixel),
+        .hcount_out(hcount_hdmi),
+        .vcount_out(vcount_hdmi),
+        .vs_out(vsync_hdmi),
+        .hs_out(hsync_hdmi),
+        .nf_out(nf_hdmi),
+        .ad_out(active_draw_hdmi),
+        .fc_out(frame_count_hdmi)
+    );
 
-    //three tmds_encoders (blue, green, red)
-
+    // Three tmds_encoders (blue, green, red)
     tmds_encoder tmds_red(
         .clk_in(clk_pixel),
         .rst_in(sys_rst_pixel),
         .data_in(red),
         .control_in(2'b0),
         .ve_in(active_draw),
-        .tmds_out(tmds_10b[2]));
-
+        .tmds_out(tmds_10b[2])
+    );
     tmds_encoder tmds_green(
-            .clk_in(clk_pixel),
-            .rst_in(sys_rst_pixel),
-            .data_in(green),
-            .control_in(2'b0),
-            .ve_in(active_draw),
-            .tmds_out(tmds_10b[1]));
-
+        .clk_in(clk_pixel),
+        .rst_in(sys_rst_pixel),
+        .data_in(green),
+        .control_in(2'b0),
+        .ve_in(active_draw),
+        .tmds_out(tmds_10b[1])
+    );
     tmds_encoder tmds_blue(
-            .clk_in(clk_pixel),
-            .rst_in(sys_rst_pixel),
-            .data_in(blue),
-            .control_in({vsync,hsync}),
-            .ve_in(active_draw),
-            .tmds_out(tmds_10b[0]));
+        .clk_in(clk_pixel),
+        .rst_in(sys_rst_pixel),
+        .data_in(blue),
+        .control_in({vsync,hsync}),
+        .ve_in(active_draw),
+        .tmds_out(tmds_10b[0])
+    );
 
-        //three tmds_serializers (blue, green, red):
+    // Three tmds_serializers (blue, green, red):
     tmds_serializer red_ser(
-            .clk_pixel_in(clk_pixel),
-            .clk_5x_in(clk_5x),
-            .rst_in(sys_rst_pixel),
-            .tmds_in(tmds_10b[2]),
-            .tmds_out(tmds_signal[2]));
+        .clk_pixel_in(clk_pixel),
+        .clk_5x_in(clk_5x),
+        .rst_in(sys_rst_pixel),
+        .tmds_in(tmds_10b[2]),
+        .tmds_out(tmds_signal[2])
+    );
     tmds_serializer green_ser(
-            .clk_pixel_in(clk_pixel),
-            .clk_5x_in(clk_5x),
-            .rst_in(sys_rst_pixel),
-            .tmds_in(tmds_10b[1]),
-            .tmds_out(tmds_signal[1]));
+        .clk_pixel_in(clk_pixel),
+        .clk_5x_in(clk_5x),
+        .rst_in(sys_rst_pixel),
+        .tmds_in(tmds_10b[1]),
+        .tmds_out(tmds_signal[1])
+    );
     tmds_serializer blue_ser(
-            .clk_pixel_in(clk_pixel),
-            .clk_5x_in(clk_5x),
-            .rst_in(sys_rst_pixel),
-            .tmds_in(tmds_10b[0]),
-            .tmds_out(tmds_signal[0]));
+        .clk_pixel_in(clk_pixel),
+        .clk_5x_in(clk_5x),
+        .rst_in(sys_rst_pixel),
+        .tmds_in(tmds_10b[0]),
+        .tmds_out(tmds_signal[0])
+    );
 
     OBUFDS OBUFDS_blue (.I(tmds_signal[0]), .O(hdmi_tx_p[0]), .OB(hdmi_tx_n[0]));
     OBUFDS OBUFDS_green(.I(tmds_signal[1]), .O(hdmi_tx_p[1]), .OB(hdmi_tx_n[1]));
