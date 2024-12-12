@@ -27,6 +27,33 @@ module orchestrator #(NUM_VTU=1) (
         IDLE
     } State;
 
+    // Support for multiple VTU
+    logic       [NUM_VTU-1:0]       vtu_valid;
+    logic       [NUM_VTU-1:0][15:0] vtu_write_addr;
+    BlockType   [NUM_VTU-1:0]       vtu_hit;
+
+    always_comb begin
+        sbuf_write_enable = !rst_in && state == RENDERING && (|vtu_valid);
+        
+        // Address to write to
+        sbuf_addr = 0;
+        sbuf_data = 0;
+        for (int k = 0; k < NUM_VTU; k++) begin
+            if (vtu_valid[k]) begin
+                sbuf_addr = vtu_write_addr[k];
+                unique case (vtu_hit[k])
+                    BLOCK_AIR: sbuf_data = 16'hAE5D;
+                    BLOCK_WATER: sbuf_data = 16'h3211;
+                    BLOCK_GRASS: sbuf_data = 16'h5C29;
+                    BLOCK_DIRT: sbuf_data = 16'h8309;
+                    BLOCK_OAK_LOG: sbuf_data = 16'h59C5;
+                    BLOCK_OAK_LEAVES: sbuf_data = 16'h852E;
+                    default: sbuf_data = 16'h522A;
+                endcase
+            end
+        end
+    end
+
     // Voxel traversal unit instances
     for (genvar i = 0; i < NUM_VTU; i++) begin:vtu
         // Input/state management
@@ -34,12 +61,12 @@ module orchestrator #(NUM_VTU=1) (
         logic           uninit;
         vec3            ray_direction;
         vec3            ray_origin;
-        logic [15:0]    pixel_addr;
        
         // VTU output
-        BlockType   hit;
         vec3        hit_norm;
-        logic       hit_valid;
+        logic        hit_valid;
+
+        assign vtu_valid[i] = hit_valid && !rst;
 
         // Memory interface
         BlockPos    ram_addr;
@@ -52,13 +79,13 @@ module orchestrator #(NUM_VTU=1) (
             .rst_in(rst_in | rst),
             .ray_origin(ray_origin),
             .ray_direction(ray_direction),
-            .hit(hit),
+            .hit(vtu_hit[i]),
             .hit_norm(hit_norm),
-            .hit_valid(hit_valid)
-            // .ram_addr(ram_addr),
-            // .ram_read_enable(ram_read_enable),
-            // .ram_out(ram_out),
-            // .ram_valid(ram_valid)
+            .hit_valid(hit_valid),
+            .ram_addr(ram_addr),
+            .ram_read_enable(ram_read_enable),
+            .ram_out(ram_out),
+            .ram_valid(ram_valid)
         );
         chunk chunk(
             .clk_in(clk_in),
@@ -106,41 +133,20 @@ module orchestrator #(NUM_VTU=1) (
     );
 
     // Static arbitration over which VTU can write to frame buffer
-    always_ff @(posedge clk_in) if (!rst_in && state == RENDERING) begin
-        sbuf_write_enable <= 0;
-    end
     for (genvar j = 0; j < NUM_VTU; j++) begin
         always_ff @(posedge clk_in) if (rst_in) begin
             vtu[j].uninit <= 1;
         end else if (state == RENDERING) begin
             vtu[j].rst <= 0;
 
-            // Put pixel in frame buffer
-            if (vtu[j].hit_valid) begin
-                // TODO: pass this off to registers for a pipelined shading engine
-                sbuf_write_enable <= 1;
-                sbuf_addr <= vtu[j].pixel_addr;
-                // TODO: actual shading
-                unique case (vtu[j].hit)
-                    BLOCK_AIR: sbuf_data <= 16'hAE5D;
-                    BLOCK_WATER: sbuf_data <= 16'h3211;
-                    BLOCK_GRASS: sbuf_data <= 16'h5C29;
-                    BLOCK_DIRT: sbuf_data <= 16'h8309;
-                    BLOCK_OAK_LOG: sbuf_data <= 16'h59C5;
-                    BLOCK_OAK_LEAVES: sbuf_data <= 16'h852E;
-                    default: sbuf_data <= 16'h522A;
-                endcase
-            end
-
             // Re-assign VTU instance
-            if ((vtu[j].hit_valid && !vtu[j].rst) | vtu[j].uninit) begin
+            if ((vtu_valid[j] && !vtu[j].rst) | vtu[j].uninit) begin
                 // TODO: this won't work with multiple VTU. only the chosen-one should update its ray parameters
                 vtu[j].ray_origin <= camera_pos;
                 vtu[j].ray_direction <= vsub(pixel_loc, camera_pos);
-                vtu[j].pixel_addr <= next_pixel_addr;
+                vtu_write_addr[j] <= next_pixel_addr;
                 vtu[j].rst <= 1;
                 vtu[j].uninit <= 0;
-                next_pixel_addr <= next_pixel_addr + 1;
             end
         end
     end
@@ -148,9 +154,6 @@ module orchestrator #(NUM_VTU=1) (
     always_ff @(posedge clk_in) if (rst_in) begin
     // Initialize parameters (prepare for a frame):
         frame_done <= 0;
-        sbuf_data <= 0;
-        sbuf_addr <= 0;
-        sbuf_write_enable <= 0;
 
         state <= INIT;
         init_timer <= 0;
@@ -221,6 +224,10 @@ module orchestrator #(NUM_VTU=1) (
             if (next_pixel_addr == FRAME_AREA) begin
                 state <= IDLE;
                 frame_done <= 1;
+            end
+
+            if (|vtu_valid) begin
+                next_pixel_addr <= next_pixel_addr + 1;
             end
         end
         IDLE: begin

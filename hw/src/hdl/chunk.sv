@@ -26,11 +26,10 @@ module chunk(
                      + (($signed(addr.y) + 7'sd40) * $signed({1'b0, 7'(CHUNK_WIDTH)}))
                      + (($signed(addr.x) + 7'sd40));
 
-    BlockPos [1:0] addr_pipe;
+    BlockPos [2:0] addr_pipe;
     logic [4:0] rom_out;
 
-    assign out = BlockType'(oob ? BLOCK_AIR : rom_out);
-    assign valid = read_enable & (oob | (addr == addr_pipe[1]));
+    assign valid = read_enable & (oob | (addr == addr_pipe[2]));
 
     xilinx_single_port_ram_read_first #(
         .RAM_WIDTH(5),
@@ -52,8 +51,11 @@ module chunk(
     always_ff @(posedge clk_in) if (rst_in) begin
         addr_pipe <= 0;
     end else begin
+        addr_pipe[2] <= addr_pipe[1];
         addr_pipe[1] <= addr_pipe[0];
         addr_pipe[0] <= addr;
+
+        out <= BlockType'(oob ? BLOCK_AIR : rom_out);
     end
 
 endmodule

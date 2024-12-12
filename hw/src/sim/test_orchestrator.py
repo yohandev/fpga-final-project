@@ -34,6 +34,7 @@ async def mock_frame_buffer(dut):
     sbuf_flat = sbuf.reshape((FRAME_WIDTH*FRAME_HEIGHT, 3), copy=False)
     while True:
         await RisingEdge(dut.sbuf_write_enable)
+        await RisingEdge(dut.clk_in)
 
         addr = dut.sbuf_addr.value.integer
         value = dut.sbuf_data.value.integer

@@ -31,15 +31,20 @@ module top_level(
     logic sys_rst;
     assign sys_rst = btn[0];
 
-    logic clk_pixel, clk_5x;
+    logic clk_pixel, clk_5x, clk_100_passthrough;
     logic locked;               // Locked signal (we'll leave unused but still hook it up)
 
     hdmi_clk_wiz_720p mhdmicw(
         .reset(0),
         .locked(locked),
-        .clk_ref(clk_100mhz),
+        .clk_ref(clk_100_passthrough),
         .clk_pixel(clk_pixel),
         .clk_tmds(clk_5x)
+    );
+    cw_fast_clk_wiz wizard_migcam(
+        .clk_in1(clk_100mhz),
+        .clk_100(clk_100_passthrough),
+        .reset(0)
     );
 
     logic [10:0] hcount;        // hcount of system!
@@ -63,6 +68,7 @@ module top_level(
         .fc_out(frame_count)
     );
  
+    // == Frame Buffer ==
     logic [7:0] red, green, blue; // red green and blue pixel values for output
 
     logic [$clog2(FRAME_AREA)-1:0]  sbuf_w_addr;    // Frame buffer write address
@@ -73,13 +79,30 @@ module top_level(
     logic [15:0]                    sbuf_r_data;    // RGB565 read from frame buffer
     logic                           sbuf_r_valid;   // Is value read from buffer valid?
 
-    // TODO: orchestrator goes here
-    // for now: white
+    // == Orchestrator ==
+    vec3 camera_position;
+    vec3 camera_heading;
+    logic frame_done;       // Unused but leave connected for vsync... eventually??
+
+    // TODO: (Win-Win) these should come from the plug-in, not hard-coded
+    assign camera_position = 'h30000000;
+    assign camera_heading = 'h100;
+
+    orchestrator #(.NUM_VTU(1)) orchestrator (
+        .clk_in(clk_100_passthrough),
+        .rst_in(sys_rst),
+        .camera_position(camera_position),
+        .camera_heading(camera_heading),
+        .sbuf_data(sbuf_w_data),
+        .sbuf_addr(sbuf_w_addr),
+        .sbuf_write_enable(sbuf_w_valid),
+        .frame_done(frame_done)
+    );
 
     //frame buffer from IP
     blk_mem_gen_0 frame_buffer(
         .addra(sbuf_w_addr),
-        .clka(clk_pixel), // TODO: (yohang): change this to clk_100mhz
+        .clka(clk_100_passthrough),
         .wea(sbuf_w_valid),
         .dina(sbuf_w_data),
         .ena(1'b1),
@@ -97,10 +120,6 @@ module top_level(
         // 4x scaling
         sbuf_r_addr <= hcount[10:2] + (FRAME_WIDTH * vcount[9:2]);
         sbuf_r_valid <= (hcount < 1280) && (vcount < 720);
-
-        sbuf_w_addr <= hcount[8:0] + (FRAME_WIDTH * vcount[7:0]);
-        sbuf_w_valid <= 1;
-        sbuf_w_data <= 16'hAE5D;
     end
 
     // RGB565 -> R, G, B
