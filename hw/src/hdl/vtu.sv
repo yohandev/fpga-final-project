@@ -1,3 +1,6 @@
+`ifndef VTU_SV
+`define VTU_SV
+
 `include "types.sv"
 `include "fixed.sv"
 `include "vec3.sv"
@@ -221,3 +224,5 @@ module voxel_traversal_unit(
     endcase
 
 endmodule
+
+`endif
