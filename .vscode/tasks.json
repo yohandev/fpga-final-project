@@ -58,7 +58,7 @@
 		{
 			"label": "Upload to FPGA",
 			"type": "shell",
-			"command": "openFPGALoader -b arty_s7_50 ./obj/final.bit",
+			"command": "openFPGALoader -b arty_s7_50 ./src/obj/final.bit",
 			"problemMatcher": [],
 			"options": {
 				"cwd": "./hw"
