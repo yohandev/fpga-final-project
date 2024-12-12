@@ -2,7 +2,7 @@
 `define TYPES_SV
 
 // At any given time, we store one chunk of width 80 (-40..=39 in all dimensions)
-parameter CHUNK_WIDTH = 80;
+parameter CHUNK_WIDTH = 64;
 
 // Framebuffer size, in pixels. MUST be a power of 2!!!
 parameter FRAME_WIDTH = 64;
