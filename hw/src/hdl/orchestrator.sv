@@ -54,11 +54,11 @@ module orchestrator #(NUM_VTU=1) (
             .ray_direction(ray_direction),
             .hit(hit),
             .hit_norm(hit_norm),
-            .hit_valid(hit_valid),
-            .ram_addr(ram_addr),
-            .ram_read_enable(ram_read_enable),
-            .ram_out(ram_out),
-            .ram_valid(ram_valid)
+            .hit_valid(hit_valid)
+            // .ram_addr(ram_addr),
+            // .ram_read_enable(ram_read_enable),
+            // .ram_out(ram_out),
+            // .ram_valid(ram_valid)
         );
         chunk chunk(
             .clk_in(clk_in),

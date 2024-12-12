@@ -188,7 +188,7 @@ impl FpgaPlugin {
 
         // Buffer to store the received single-byte signal from FPGA
         let mut signal = [0u8; 1];
-
+        println!("{:?}", port.read_exact(&mut signal));
         match port.read_exact(&mut signal) {
             Ok(_) => {
                 // Decode the signal into a movement command
@@ -227,8 +227,8 @@ impl FpgaPlugin {
             };
     
             // Trigger the save and send operations
-            self.save_chunk_local(game);
-            self.send_blocks(game);
+            // self.save_chunk_local(game);
+            // self.send_blocks(game);
     
             println!("Player moved to new position: {:?}", new_pos);
         } else {

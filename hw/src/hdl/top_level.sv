@@ -223,7 +223,7 @@ module top_level(
     logic        frame_done;
 
     orchestrator #(.NUM_VTU(1)) orchestrator(
-        .clk_in(clk_100mhz),
+        .clk_in(clk_100_passthrough),
         .rst_in(sys_rst),
         // TODO: these, but not hard coded
         .camera_position('h30000000),
@@ -245,7 +245,7 @@ module top_level(
         good_addrb <= ((hcount_hdmi>>2) < FRAME_WIDTH) && ((vcount_hdmi>>2) < FRAME_HEIGHT);
     end
 
-    xilinx_true_dual_port_read_first_2_clock_ram frame_buffer(
+    blk_mem_gen_0 frame_buffer(
         .addra(sbuf_addr), //pixels are stored using this math
         .clka(clk_camera),
         .wea(sbuf_write_enable),
@@ -283,12 +283,12 @@ module top_level(
     logic [9:0]    tmds_10b [0:2]; //output of each TMDS encoder!
     logic          tmds_signal [2:0]; //output of each TMDS serializer!
 
-    logic [10:0] hcount_pipe [7:0];
-    logic [9:0] vcount_pipe [7:0];
-    logic nf_pipe [7:0];
-    logic hsync_pipe [7:0];
-    logic vsync_pipe [7:0];
-    logic active_draw_pipe [7:0];
+    // logic [10:0] hcount_pipe [7:0];
+    // logic [9:0] vcount_pipe [7:0];
+    // logic nf_pipe [7:0];
+    // logic hsync_pipe [7:0];
+    // logic vsync_pipe [7:0];
+    // logic active_draw_pipe [7:0];
 
     // always_ff @(posedge clk_pixel) begin
     //     hcount_pipe[0] <= hcount_hdmi;
